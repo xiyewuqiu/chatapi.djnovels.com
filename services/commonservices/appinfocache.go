@@ -78,6 +78,19 @@ type AppInfo struct {
 	//real-time statistic
 	OpenRealTimeMsgStatistic bool `default:"false"`
 
+	// Modern IM & Multi-tenant Policies
+	OpenReadReceipt    bool   `default:"true"`
+	OpenReaction       bool   `default:"true"`
+	RecallTimeLimitSec int    `default:"120"`
+	MultiDeviceMode    int    `default:"3"`
+	SensitiveMode      int    `default:"1"`
+	PreSendWebhookUrl  string `default:""`
+	PostSendWebhookUrl string `default:""`
+	EventWebhookUrl    string `default:""`
+	MaxUsersQuota      int    `default:"100000"`
+	MaxGroupsQuota     int    `default:"10000"`
+	QpsLimitQuota      int    `default:"2000"`
+
 	EventSubConfig  string `default:""`
 	EventSubSwitch  string `default:""`
 	SecurityDomains string `default:""`
@@ -249,6 +262,12 @@ func GetAppInfo(appkey string) (*AppInfo, bool) {
 		}
 	} else {
 		return nil, false
+	}
+}
+
+func InvalidateAppInfoCache(appKey string) {
+	if appInfoCache != nil {
+		appInfoCache.Remove(appKey)
 	}
 }
 

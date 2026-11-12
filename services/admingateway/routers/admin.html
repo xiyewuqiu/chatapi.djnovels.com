@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IM PaaS 全局中控台 · Super Admin Console</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    .tab-active {
+      border-bottom: 2px solid #3b82f6;
+      color: #3b82f6;
+      font-weight: 600;
+    }
+  </style>
+</head>
+
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+  <!-- Top Navigation -->
+  <header
+    class="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-40 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+      <div
+        class="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20">
+        <i class="fa-solid fa-satellite-dish"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold tracking-tight">IM PaaS 全局中控台</h1>
+        <p class="text-xs text-slate-400">工业级多租户即时通信云平台 · Super Admin 2.0</p>
+      </div>
+    </div>
+    <div class="flex items-center space-x-4">
+      <span
+        class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span> 服务运行正常
+      </span>
+      <button onclick="fetchOverview()"
+        class="text-slate-400 hover:text-white text-sm bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-md transition">
+        <i class="fa-solid fa-arrows-rotate mr-1"></i> 刷新数据
+      </button>
+    </div>
+  </header>
+
+  <!-- Metric Overview Cards -->
+  <div class="max-w-7xl mx-auto px-6 pt-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 shadow-sm">
+        <div class="flex items-center justify-between text-slate-400 text-sm mb-1">
+          <span>总租户应用数</span>
+          <i class="fa-solid fa-building text-blue-400"></i>
+        </div>
+        <div id="stat-apps" class="text-2xl font-bold tracking-tight text-white">--</div>
+        <div class="text-xs text-slate-500 mt-1">支持全隔离多租户</div>
+      </div>
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 shadow-sm">
+        <div class="flex items-center justify-between text-slate-400 text-sm mb-1">
+          <span>注册用户总数</span>
+          <i class="fa-solid fa-users text-emerald-400"></i>
+        </div>
+        <div id="stat-users" class="text-2xl font-bold tracking-tight text-white">--</div>
+        <div class="text-xs text-slate-500 mt-1">跨租户全域用户</div>
+      </div>
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 shadow-sm">
+        <div class="flex items-center justify-between text-slate-400 text-sm mb-1">
+          <span>活跃群组总数</span>
+          <i class="fa-solid fa-comments text-amber-400"></i>
+        </div>
+        <div id="stat-groups" class="text-2xl font-bold tracking-tight text-white">--</div>
+        <div class="text-xs text-slate-500 mt-1">支持万人大群与公告</div>
+      </div>
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 shadow-sm">
+        <div class="flex items-center justify-between text-slate-400 text-sm mb-1">
+          <span>今日消息吞吐</span>
+          <i class="fa-solid fa-paper-plane text-purple-400"></i>
+        </div>
+        <div id="stat-today-msgs" class="text-2xl font-bold tracking-tight text-white">--</div>
+        <div class="text-xs text-slate-500 mt-1">实时流转与持久化</div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="border-b border-slate-800 flex space-x-8 mb-6">
+      <button onclick="switchTab('tenants')" id="tab-btn-tenants"
+        class="py-3 px-1 text-sm font-medium tab-active transition">
+        <i class="fa-solid fa-cubes mr-2"></i>租户与应用管理 (Tenants)
+      </button>
+      <button onclick="switchTab('audit')" id="tab-btn-audit"
+        class="py-3 px-1 text-sm font-medium text-slate-400 hover:text-slate-200 transition">
+        <i class="fa-solid fa-shield-halved mr-2"></i>消息合规与审计 (Audit)
+      </button>
+      <button onclick="switchTab('system')" id="tab-btn-system"
+        class="py-3 px-1 text-sm font-medium text-slate-400 hover:text-slate-200 transition">
+        <i class="fa-solid fa-server mr-2"></i>系统性能大盘 (Performance)
+      </button>
+    </div>
+
+    <!-- Tab 1: Tenants Content -->
+    <section id="tab-tenants" class="block">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base font-semibold text-slate-200">租户应用列表</h2>
+        <button onclick="openCreateModal()"
+          class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg shadow-sm transition flex items-center">
+          <i class="fa-solid fa-plus mr-1.5"></i> 创建新租户应用
+        </button>
+      </div>
+
+      <div class="bg-slate-800/40 border border-slate-800 rounded-xl overflow-hidden">
+        <table class="w-full text-left text-sm text-slate-300">
+          <thead class="bg-slate-900/60 text-xs uppercase text-slate-400 border-b border-slate-800">
+            <tr>
+              <th class="px-6 py-3">应用名称 / AppKey</th>
+              <th class="px-6 py-3">AppSecret (凭证)</th>
+              <th class="px-6 py-3">状态</th>
+              <th class="px-6 py-3">创建时间</th>
+              <th class="px-6 py-3 text-right">操作</th>
+            </tr>
+          </thead>
+          <tbody id="tenant-list-body" class="divide-y divide-slate-800">
+            <tr>
+              <td colspan="5" class="px-6 py-8 text-center text-slate-500">正在拉取租户应用数据...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Tab 2: Audit Content -->
+    <section id="tab-audit" class="hidden">
+      <div class="bg-slate-800/40 border border-slate-800 rounded-xl p-4 mb-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <input id="audit-appkey" type="text" placeholder="AppKey (必填)"
+            class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+          <select id="audit-type"
+            class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+            <option value="1">单聊消息 (Private)</option>
+            <option value="2">群聊消息 (Group)</option>
+          </select>
+          <input id="audit-sender" type="text" placeholder="发送者 UserID (可选)"
+            class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+          <div class="flex space-x-2">
+            <button onclick="queryAuditMessages()"
+              class="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+              <i class="fa-solid fa-magnifying-glass mr-1"></i> 查询记录
+            </button>
+            <button onclick="exportAuditMessages()"
+              class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition"
+              title="按时间与会话导出合规审计日志">
+              <i class="fa-solid fa-file-export mr-1"></i> 导出 JSON
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-slate-800/40 border border-slate-800 rounded-xl overflow-hidden">
+        <table class="w-full text-left text-sm text-slate-300">
+          <thead class="bg-slate-900/60 text-xs uppercase text-slate-400 border-b border-slate-800">
+            <tr>
+              <th class="px-6 py-3">MsgID</th>
+              <th class="px-6 py-3">发送者</th>
+              <th class="px-6 py-3">接收目标</th>
+              <th class="px-6 py-3">发送时间</th>
+              <th class="px-6 py-3">操作</th>
+            </tr>
+          </thead>
+          <tbody id="audit-list-body" class="divide-y divide-slate-800">
+            <tr>
+              <td colspan="5" class="px-6 py-8 text-center text-slate-500">请输入 AppKey 查询对应租户消息记录</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Tab 3: System Performance Content -->
+    <section id="tab-system" class="hidden">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-slate-800/40 border border-slate-800 rounded-xl p-5">
+          <h3 class="font-semibold text-slate-200 mb-4 flex items-center">
+            <i class="fa-solid fa-microchip text-blue-400 mr-2"></i> 主机计算资源
+          </h3>
+          <div class="space-y-4 text-sm">
+            <div>
+              <div class="flex justify-between text-slate-400 mb-1">
+                <span>CPU 使用率</span>
+                <span id="sys-cpu">--%</span>
+              </div>
+              <div class="w-full bg-slate-900 rounded-full h-2">
+                <div id="sys-cpu-bar" class="bg-blue-500 h-2 rounded-full" style="width: 0%"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between text-slate-400 mb-1">
+                <span>内存占用率</span>
+                <span id="sys-mem">--%</span>
+              </div>
+              <div class="w-full bg-slate-900 rounded-full h-2">
+                <div id="sys-mem-bar" class="bg-emerald-500 h-2 rounded-full" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-slate-800/40 border border-slate-800 rounded-xl p-5">
+          <h3 class="font-semibold text-slate-200 mb-4 flex items-center">
+            <i class="fa-brands fa-golang text-cyan-400 mr-2"></i> Go 运行时状态
+          </h3>
+          <div class="grid grid-cols-2 gap-3 text-sm">
+            <div class="bg-slate-900/60 p-3 rounded-lg">
+              <span class="text-xs text-slate-400 block">活跃协程数 (Goroutines)</span>
+              <span id="go-goroutines" class="text-lg font-bold text-slate-200">--</span>
+            </div>
+            <div class="bg-slate-900/60 p-3 rounded-lg">
+              <span class="text-xs text-slate-400 block">堆内存分配 (HeapAlloc)</span>
+              <span id="go-heap" class="text-lg font-bold text-slate-200">-- MB</span>
+            </div>
+            <div class="bg-slate-900/60 p-3 rounded-lg">
+              <span class="text-xs text-slate-400 block">GC 触发次数 (NumGC)</span>
+              <span id="go-numgc" class="text-lg font-bold text-slate-200">--</span>
+            </div>
+            <div class="bg-slate-900/60 p-3 rounded-lg">
+              <span class="text-xs text-slate-400 block">系统调用 (CgoCalls)</span>
+              <span id="go-cgo" class="text-lg font-bold text-slate-200">--</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Create App Modal -->
+  <div id="modal-create-app"
+    class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full p-6 shadow-2xl">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-base font-bold text-white">创建新租户应用</h3>
+        <button onclick="closeCreateModal()" class="text-slate-400 hover:text-white">&times;</button>
+      </div>
+      <div class="space-y-4 text-sm">
+        <div>
+          <label class="block text-slate-400 text-xs mb-1">应用名称 (必填)</label>
+          <input id="input-app-name" type="text" placeholder="例如: 小说社区 / 电商客服"
+            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+        </div>
+        <div>
+          <label class="block text-slate-400 text-xs mb-1">自定义 AppKey (选填，留空系统自动生成 16 位)</label>
+          <input id="input-app-key" type="text" placeholder="留空自动生成"
+            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+        </div>
+        <div class="pt-2 flex justify-end space-x-2">
+          <button onclick="closeCreateModal()"
+            class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition">取消</button>
+          <button onclick="submitCreateApp()"
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition">立即创建</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Policy Edit Modal -->
+  <div id="modal-policy"
+    class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-6 shadow-2xl">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-base font-bold text-white">租户功能策略字典 · <span id="policy-target-appkey"
+            class="text-blue-400"></span></h3>
+        <button onclick="closePolicyModal()" class="text-slate-400 hover:text-white">&times;</button>
+      </div>
+      <div class="space-y-3 text-sm max-h-[70vh] overflow-y-auto pr-1">
+        <div class="flex items-center justify-between p-3 bg-slate-950 rounded-lg">
+          <div>
+            <div class="font-medium text-slate-200">消息已读回执 (Read Receipts)</div>
+            <div class="text-xs text-slate-500">单聊双勾状态与群聊已读人数/明细开关</div>
+          </div>
+          <input id="policy-read-receipt" type="checkbox" class="w-4 h-4 text-blue-600 rounded">
+        </div>
+        <div class="flex items-center justify-between p-3 bg-slate-950 rounded-lg">
+          <div>
+            <div class="font-medium text-slate-200">消息表态 (Reaction)</div>
+            <div class="text-xs text-slate-500">允许用户对消息添加表情互动</div>
+          </div>
+          <input id="policy-reaction" type="checkbox" class="w-4 h-4 text-blue-600 rounded">
+        </div>
+        <div>
+          <label class="block text-slate-400 text-xs mb-1">消息撤回时效限制 (秒，0 为不限时)</label>
+          <input id="policy-recall-limit" type="number"
+            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white">
+        </div>
+        <div>
+          <label class="block text-slate-400 text-xs mb-1">Pre-Send Webhook (发送前同步拦截 URL)</label>
+          <input id="policy-presend-url" type="text" placeholder="https://your-api.com/im/hook/presend"
+            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white">
+        </div>
+        <div>
+          <label class="block text-slate-400 text-xs mb-1">Post-Send Webhook (发送后异步转抄 URL)</label>
+          <input id="policy-postsend-url" type="text" placeholder="https://your-api.com/im/hook/postsend"
+            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white">
+        </div>
+        <div class="pt-2 flex justify-end space-x-2">
+          <button onclick="closePolicyModal()"
+            class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition">取消</button>
+          <button onclick="submitUpdatePolicy()"
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition">保存策略</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentPolicyAppKey = '';
+
+    function switchTab(tab) {
+      ['tenants', 'audit', 'system'].forEach(t => {
+        document.getElementById('tab-' + t).classList.add('hidden');
+        document.getElementById('tab-btn-' + t).classList.remove('tab-active');
+        document.getElementById('tab-btn-' + t).classList.add('text-slate-400');
+      });
+      document.getElementById('tab-' + tab).classList.remove('hidden');
+      document.getElementById('tab-btn-' + tab).classList.add('tab-active');
+      document.getElementById('tab-btn-' + tab).classList.remove('text-slate-400');
+
+      if (tab === 'tenants') fetchTenants();
+      if (tab === 'system') fetchOverview();
+    }
+
+    async function fetchOverview() {
+      try {
+        const res = await fetch('/admingateway/v2/metrics/overview');
+        const json = await res.json();
+        if (json.code === 0 && json.data) {
+          const s = json.data.summary || {};
+          document.getElementById('stat-apps').innerText = s.total_apps || 0;
+          document.getElementById('stat-users').innerText = s.total_users || 0;
+          document.getElementById('stat-groups').innerText = s.total_groups || 0;
+          document.getElementById('stat-today-msgs').innerText = s.today_messages || 0;
+
+          const m = json.data.machine || {};
+          if (m.cpu) {
+            const cpu = Math.round(m.cpu.usage_percent || 0);
+            document.getElementById('sys-cpu').innerText = cpu + '%';
+            document.getElementById('sys-cpu-bar').style.width = cpu + '%';
+          }
+          if (m.memory) {
+            const mem = Math.round(m.memory.usage_percent || 0);
+            document.getElementById('sys-mem').innerText = mem + '%';
+            document.getElementById('sys-mem-bar').style.width = mem + '%';
+          }
+          if (m.go_runtime) {
+            document.getElementById('go-goroutines').innerText = m.go_runtime.goroutine_count || 0;
+            document.getElementById('go-heap').innerText = Math.round((m.go_runtime.heap_alloc_bytes || 0) / 1024 / 1024) + ' MB';
+            document.getElementById('go-numgc').innerText = m.go_runtime.num_gc || 0;
+            document.getElementById('go-cgo').innerText = m.go_runtime.cgo_call_count || 0;
+          }
+        }
+      } catch (e) {
+        console.error('Fetch overview failed', e);
+      }
+    }
+
+    async function fetchTenants() {
+      try {
+        const res = await fetch('/admingateway/v2/apps/list?page=1&size=50');
+        const json = await res.json();
+        const tbody = document.getElementById('tenant-list-body');
+        if (json.code === 0 && json.data && json.data.items) {
+          if (json.data.items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">暂无租户应用，点击右上角创建</td></tr>';
+            return;
+          }
+          tbody.innerHTML = json.data.items.map(app => `
+            <tr class="hover:bg-slate-800/20">
+              <td class="px-6 py-4">
+                <div class="font-semibold text-white">${app.AppName}</div>
+                <div class="text-xs text-blue-400 font-mono">${app.AppKey}</div>
+              </td>
+              <td class="px-6 py-4 font-mono text-xs text-slate-400 select-all">${app.AppSecret}</td>
+              <td class="px-6 py-4">
+                <span class="inline-flex px-2 py-0.5 rounded text-xs ${app.AppStatus === 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}">
+                  ${app.AppStatus === 0 ? '正常运行' : '已封禁'}
+                </span>
+              </td>
+              <td class="px-6 py-4 text-xs text-slate-400">${new Date(app.CreatedTime).toLocaleString()}</td>
+              <td class="px-6 py-4 text-right space-x-2">
+                <button onclick="openPolicyModal('${app.AppKey}')" class="text-xs bg-slate-800 hover:bg-slate-700 text-blue-400 px-2.5 py-1 rounded transition">
+                  <i class="fa-solid fa-sliders mr-1"></i> 策略配置
+                </button>
+              </td>
+            </tr>
+          `).join('');
+        }
+      } catch (e) {
+        console.error('Fetch tenants error', e);
+      }
+    }
+
+    function openCreateModal() { document.getElementById('modal-create-app').classList.remove('hidden'); }
+    function closeCreateModal() { document.getElementById('modal-create-app').classList.add('hidden'); }
+
+    async function submitCreateApp() {
+      const name = document.getElementById('input-app-name').value.trim();
+      const key = document.getElementById('input-app-key').value.trim();
+      if (!name) return alert('请输入应用名称');
+      try {
+        const res = await fetch('/admingateway/v2/apps/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ app_name: name, app_key: key })
+        });
+        const json = await res.json();
+        if (json.code === 0) {
+          closeCreateModal();
+          fetchTenants();
+          fetchOverview();
+        } else {
+          alert('创建失败: ' + json.msg);
+        }
+      } catch (e) {
+        alert('网络请求异常');
+      }
+    }
+
+    async function openPolicyModal(appKey) {
+      currentPolicyAppKey = appKey;
+      document.getElementById('policy-target-appkey').innerText = appKey;
+      document.getElementById('modal-policy').classList.remove('hidden');
+      try {
+        const res = await fetch('/admingateway/v2/apps/policies/get?app_key=' + encodeURIComponent(appKey));
+        const json = await res.json();
+        if (json.code === 0 && json.data) {
+          const d = json.data;
+          document.getElementById('policy-read-receipt').checked = !!d.open_read_receipt;
+          document.getElementById('policy-reaction').checked = !!d.open_reaction;
+          document.getElementById('policy-recall-limit').value = d.recall_time_limit_sec || 120;
+          document.getElementById('policy-presend-url').value = d.pre_send_webhook_url || '';
+          document.getElementById('policy-postsend-url').value = d.post_send_webhook_url || '';
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    function closePolicyModal() { document.getElementById('modal-policy').classList.add('hidden'); }
+
+    async function submitUpdatePolicy() {
+      try {
+        const payload = {
+          app_key: currentPolicyAppKey,
+          open_read_receipt: document.getElementById('policy-read-receipt').checked,
+          open_reaction: document.getElementById('policy-reaction').checked,
+          recall_time_limit_sec: parseInt(document.getElementById('policy-recall-limit').value) || 0,
+          pre_send_webhook_url: document.getElementById('policy-presend-url').value.trim(),
+          post_send_webhook_url: document.getElementById('policy-postsend-url').value.trim()
+        };
+        const res = await fetch('/admingateway/v2/apps/policies/set', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+        if (json.code === 0) {
+          alert('策略保存成功并已全节点实时同步生效！');
+          closePolicyModal();
+        } else {
+          alert('保存失败: ' + json.msg);
+        }
+      } catch (e) {
+        alert('请求异常');
+      }
+    }
+
+    async function queryAuditMessages() {
+      const appKey = document.getElementById('audit-appkey').value.trim();
+      if (!appKey) return alert('请输入 AppKey');
+      const channelType = document.getElementById('audit-type').value;
+      const sender = document.getElementById('audit-sender').value.trim();
+      const tbody = document.getElementById('audit-list-body');
+      tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">查询中...</td></tr>';
+      try {
+        const res = await fetch('/admingateway/v2/audit/messages?app_key=' + encodeURIComponent(appKey) + '&channel_type=' + channelType + '&sender_id=' + encodeURIComponent(sender));
+        const json = await res.json();
+        if (json.code === 0 && json.data && json.data.items) {
+          if (json.data.items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">无匹配记录</td></tr>';
+            return;
+          }
+          tbody.innerHTML = json.data.items.map(m => `
+            <tr class="hover:bg-slate-800/20">
+              <td class="px-6 py-4 font-mono text-xs text-blue-400">${m.msg_id || '--'}</td>
+              <td class="px-6 py-4 font-mono text-xs text-slate-300">${m.sender_id || '--'}</td>
+              <td class="px-6 py-4 font-mono text-xs text-slate-300">${m.target_id || '--'}</td>
+              <td class="px-6 py-4 text-xs text-slate-400">${m.send_time ? new Date(Number(m.send_time)).toLocaleString() : '--'}</td>
+              <td class="px-6 py-4">
+                <button onclick="adminRecall('${appKey}', '${m.msg_id}', ${channelType})" class="text-xs bg-red-600/20 text-red-400 hover:bg-red-600/30 px-2.5 py-1 rounded transition">
+                  <i class="fa-solid fa-ban mr-1"></i> 强制撤回
+                </button>
+              </td>
+            </tr>
+          `).join('');
+        }
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-red-500">查询失败</td></tr>';
+      }
+    }
+
+    async function adminRecall(appKey, msgId, channelType) {
+      if (!confirm('确定要强制撤回并清空该违规消息吗？')) return;
+      try {
+        const res = await fetch('/admingateway/v2/audit/messages/recall', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ app_key: appKey, msg_id: msgId, channel_type: channelType })
+        });
+        const json = await res.json();
+        if (json.code === 0) {
+          alert('消息已被管理员成功强制撤回！');
+          queryAuditMessages();
+        } else {
+          alert('撤回失败: ' + json.msg);
+        }
+      } catch (e) {
+        alert('请求异常');
+      }
+    }
+
+    async function exportAuditMessages() {
+      const appKey = document.getElementById('audit-appkey').value.trim();
+      if (!appKey) return alert('请输入 AppKey 以进行合规导出');
+      const channelType = document.getElementById('audit-type').value;
+      try {
+        const url = '/admingateway/v2/audit/export?app_key=' + encodeURIComponent(appKey) + '&channel_type=' + channelType + '&limit=5000';
+        const res = await fetch(url);
+        const json = await res.json();
+        if (json.code === 0 && json.data) {
+          const blob = new Blob([JSON.stringify(json.data, null, 2)], { type: 'application/json' });
+          const downloadUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = downloadUrl;
+          a.download = `im_audit_export_${appKey}_${Date.now()}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(downloadUrl);
+        } else {
+          alert('导出失败: ' + (json.msg || '未知错误'));
+        }
+      } catch (e) {
+        alert('导出请求异常');
+      }
+    }
+
+    // Init
+    fetchOverview();
+    fetchTenants();
+  </script>
+</body>
+
+</html>

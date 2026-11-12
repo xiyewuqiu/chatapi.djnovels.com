@@ -1,3 +1,5 @@
+//go:build !windows
+
 package lumberjack
 
 import (
@@ -14,6 +16,9 @@ func chown(name string, info os.FileInfo) error {
 		return err
 	}
 	f.Close()
-	stat := info.Sys().(*syscall.Stat_t)
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		return nil
+	}
 	return osChown(name, int(stat.Uid), int(stat.Gid))
 }

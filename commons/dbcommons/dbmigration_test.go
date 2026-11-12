@@ -27,7 +27,7 @@ func TestExecuteSqlFileReturnsExecError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	source := string(content)
+	source := strings.ReplaceAll(string(content), "\r\n", "\n")
 	want := "if err := GetDb().Exec(query).Error; err != nil {\n\t\t\t\t\tfmt.Println(\"[DbMigration_Err]Execute sql error:\", err, query)\n\t\t\t\t\treturn err"
 	if !strings.Contains(source, want) {
 		t.Fatal("executeSqlFile must immediately return an Exec error")

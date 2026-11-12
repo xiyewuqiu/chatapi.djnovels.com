@@ -68,6 +68,15 @@ func (manager *GroupManager) RegisterActors(register gmicro.IActorRegister) {
 	register.RegisterActor("imp_grp_msg", func() actorsystem.IUntypedActor {
 		return bases.BaseProcessActor(&actors.ImportGroupHisMsgActor{}, serviceName)
 	})
+	register.RegisterActor("grp_set_admin", func() actorsystem.IUntypedActor {
+		return bases.BaseProcessActor(&actors.SetGroupAdminActor{}, serviceName)
+	})
+	register.RegisterActor("grp_del_admin", func() actorsystem.IUntypedActor {
+		return bases.BaseProcessActor(&actors.DelGroupAdminActor{}, serviceName)
+	})
+	register.RegisterActor("grp_qry_admins", func() actorsystem.IUntypedActor {
+		return bases.BaseProcessActor(&actors.QryGroupAdminsActor{}, serviceName)
+	})
 }
 
 func (manager *GroupManager) Startup(args map[string]interface{}) {

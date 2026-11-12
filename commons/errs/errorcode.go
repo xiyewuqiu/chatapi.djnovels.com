@@ -90,6 +90,7 @@ var (
 	IMErrorCode_MSG_NO_Permission     IMErrorCode = 12010
 	IMErrorCode_MSG_MSGNOTFOUND       IMErrorCode = 12011
 	IMErrorCode_MSG_FAVORITEDUPLICATE IMErrorCode = 12012
+	IMErrorCode_MSG_RECALL_TIMEOUT    IMErrorCode = 12013
 )
 
 // conversation

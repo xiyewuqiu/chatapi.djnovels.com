@@ -333,6 +333,39 @@ func SetGroupMemberSettings(ctx context.Context, groupId string, req *pbobjs.Gro
 	return errs.IMErrorCode_SUCCESS
 }
 
+func SetGroupMemberType(ctx context.Context, groupId string, memberIds []string, memberType pbobjs.UserType) errs.IMErrorCode {
+	appkey := bases.GetAppKeyFromCtx(ctx)
+	dao := dbs.GroupMemberDao{}
+	err := dao.UpdateMemberType(appkey, groupId, memberIds, int(memberType))
+	if err != nil {
+		return errs.IMErrorCode_GROUP_DEFAULT
+	}
+	container, exist := GetGroupMembersFromCache(ctx, appkey, groupId)
+	if exist {
+		container.SetMemberType(memberType, memberIds)
+	}
+	return errs.IMErrorCode_SUCCESS
+}
+
+func QryGroupAdmins(ctx context.Context, groupId string) (errs.IMErrorCode, []*pbobjs.GroupMember) {
+	appkey := bases.GetAppKeyFromCtx(ctx)
+	dao := dbs.GroupMemberDao{}
+	members, err := dao.QueryMembersByType(appkey, groupId, int(pbobjs.UserType_Admin))
+	if err != nil {
+		return errs.IMErrorCode_GROUP_DEFAULT, nil
+	}
+	ret := []*pbobjs.GroupMember{}
+	for _, m := range members {
+		ret = append(ret, &pbobjs.GroupMember{
+			MemberId:   m.MemberId,
+			MemberType: pbobjs.UserType(m.MemberType),
+			IsMute:     int32(m.IsMute),
+			IsAllow:    int32(m.IsAllow),
+		})
+	}
+	return errs.IMErrorCode_SUCCESS, ret
+}
+
 func QryGroupMembersByIds(ctx context.Context, req *pbobjs.GroupMembersReq) (errs.IMErrorCode, *pbobjs.GroupMembersResp) {
 	resp := &pbobjs.GroupMembersResp{
 		Items: []*pbobjs.GroupMember{},
@@ -601,4 +634,16 @@ func (container *GroupMemberContainer) CheckGroupMembers(memberIds []string) map
 		}
 	}
 	return ret
+}
+
+func (container *GroupMemberContainer) SetMemberType(memberType pbobjs.UserType, memberIds []string) {
+	key := getGroupKey(container.Appkey, container.GroupId)
+	lock := groupLocks.GetLocks(key)
+	lock.Lock()
+	defer lock.Unlock()
+	for _, memberId := range memberIds {
+		if member, exist := container.Members[memberId]; exist {
+			member.MemberType = memberType
+		}
+	}
 }

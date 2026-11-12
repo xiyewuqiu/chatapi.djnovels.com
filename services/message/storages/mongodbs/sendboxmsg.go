@@ -98,7 +98,7 @@ func (msg *SendboxMsgDao) QryMsgsBaseTime(appkey, userId string, start int64, co
 	if collection != nil {
 		filter := bson.M{"app_key": appkey, "user_id": userId, "send_time": bson.M{"$gt": start}}
 
-		cur, err := collection.Find(context.TODO(), filter, options.Find().SetSort(bson.D{{"send_time", 1}}), options.Find().SetLimit(int64(count)))
+		cur, err := collection.Find(context.TODO(), filter, options.Find().SetSort(bson.D{{Key: "send_time", Value: 1}}), options.Find().SetLimit(int64(count)))
 		defer func() {
 			if cur != nil {
 				cur.Close(context.TODO())

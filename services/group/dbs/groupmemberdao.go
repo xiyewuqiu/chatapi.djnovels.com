@@ -90,3 +90,13 @@ func (member GroupMemberDao) UpdateMute(appkey, groupId string, isMute int, memb
 func (member GroupMemberDao) UpdateAllow(appkey, groupId string, isAllow int, memberIds []string) error {
 	return dbcommons.GetDb().Model(&member).Where("app_key=? and group_id=? and member_id in (?)", appkey, groupId, memberIds).Update("is_allow", isAllow).Error
 }
+
+func (member GroupMemberDao) UpdateMemberType(appkey, groupId string, memberIds []string, memberType int) error {
+	return dbcommons.GetDb().Model(&GroupMemberDao{}).Where("app_key=? and group_id=? and member_id in (?)", appkey, groupId, memberIds).Update("member_type", memberType).Error
+}
+
+func (member GroupMemberDao) QueryMembersByType(appkey, groupId string, memberType int) ([]*GroupMemberDao, error) {
+	var items []*GroupMemberDao
+	err := dbcommons.GetDb().Where("app_key=? and group_id=? and member_type=?", appkey, groupId, memberType).Find(&items).Error
+	return items, err
+}

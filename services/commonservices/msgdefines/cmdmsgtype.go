@@ -24,6 +24,7 @@ var (
 	CmdMsgType_RecallInfo       string = "jg:recallinfo"
 	CmdMsgType_TopMsg           string = "jg:topmsg"
 	CmdMsgType_ActivedCall      string = "jg:activedcall"
+	CmdMsgType_Typing           string = "jg:typing"
 )
 
 var cmdMsgMap map[string]bool
@@ -52,6 +53,7 @@ func init() {
 	cmdMsgMap[CmdMsgType_RecallInfo] = true
 	cmdMsgMap[CmdMsgType_TopMsg] = true
 	cmdMsgMap[CmdMsgType_ActivedCall] = true
+	cmdMsgMap[CmdMsgType_Typing] = true
 }
 
 func IsCmdMsgType(msgType string) bool {

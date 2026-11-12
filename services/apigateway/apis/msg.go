@@ -37,6 +37,15 @@ func SendPrivateMsg(ctx *gin.Context) {
 	}
 	targetIds = append(targetIds, sendMsgReq.TargetIds...)
 	targetIds = purgeTargetIds(targetIds)
+
+	appKey := bases.GetAppKeyFromCtx(ctx)
+	allow, modifiedContent, errCode := commonservices.PreSendCheck(ctx, appKey, sendMsgReq.SenderId, sendMsgReq.TargetId, int(pbobjs.ChannelType_Private), sendMsgReq.MsgType, []byte(sendMsgReq.MsgContent))
+	if !allow {
+		tools.ErrorHttpResp(ctx, errCode)
+		return
+	}
+	sendMsgReq.MsgContent = string(modifiedContent)
+
 	ret := []*models.SendMsgRespItem{}
 	msgIdMap := map[string]string{}
 	for _, targetId := range targetIds {
@@ -71,6 +80,7 @@ func SendPrivateMsg(ctx *gin.Context) {
 				LifeTime:          sendMsgReq.LifeTime,
 				LifeTimeAfterRead: sendMsgReq.LifeTimeAfterRead,
 			}, opts...)
+			commonservices.PostSendNotify(appKey, msgId, sendMsgReq.SenderId, targetId, int(pbobjs.ChannelType_Private), sendMsgReq.MsgType, time.Now().UnixMilli())
 			time.Sleep(10 * time.Millisecond)
 		}
 	})
@@ -92,6 +102,15 @@ func SendSystemMsg(ctx *gin.Context) {
 	}
 	targetIds = append(targetIds, sendMsgReq.TargetIds...)
 	targetIds = purgeTargetIds(targetIds)
+
+	appKey := bases.GetAppKeyFromCtx(ctx)
+	allow, modifiedContent, errCode := commonservices.PreSendCheck(ctx, appKey, sendMsgReq.SenderId, sendMsgReq.TargetId, int(pbobjs.ChannelType_Group), sendMsgReq.MsgType, []byte(sendMsgReq.MsgContent))
+	if !allow {
+		tools.ErrorHttpResp(ctx, errCode)
+		return
+	}
+	sendMsgReq.MsgContent = string(modifiedContent)
+
 	ret := []*models.SendMsgRespItem{}
 	msgIdMap := map[string]string{}
 	for _, targetId := range targetIds {
@@ -138,6 +157,15 @@ func SendGroupMsg(ctx *gin.Context) {
 	}
 	targetIds = append(targetIds, sendMsgReq.TargetIds...)
 	targetIds = purgeTargetIds(targetIds)
+
+	appKey := bases.GetAppKeyFromCtx(ctx)
+	allow, modifiedContent, errCode := commonservices.PreSendCheck(ctx, appKey, sendMsgReq.SenderId, sendMsgReq.TargetId, int(pbobjs.ChannelType_Group), sendMsgReq.MsgType, []byte(sendMsgReq.MsgContent))
+	if !allow {
+		tools.ErrorHttpResp(ctx, errCode)
+		return
+	}
+	sendMsgReq.MsgContent = string(modifiedContent)
+
 	ret := []*models.SendMsgRespItem{}
 	msgIdMap := map[string]string{}
 	for _, targetId := range targetIds {
@@ -173,6 +201,7 @@ func SendGroupMsg(ctx *gin.Context) {
 				LifeTime:          sendMsgReq.LifeTime,
 				LifeTimeAfterRead: sendMsgReq.LifeTimeAfterRead,
 			}, opts...)
+			commonservices.PostSendNotify(appKey, msgId, sendMsgReq.SenderId, targetId, int(pbobjs.ChannelType_Group), sendMsgReq.MsgType, time.Now().UnixMilli())
 			time.Sleep(10 * time.Millisecond)
 		}
 	})

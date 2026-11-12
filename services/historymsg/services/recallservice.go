@@ -11,6 +11,7 @@ import (
 	"im-server/services/commonservices/msgdefines"
 	converStorages "im-server/services/conversation/storages"
 	"im-server/services/historymsg/storages"
+	"time"
 )
 
 var RecallCmdType string = msgdefines.CmdMsgType_Recall
@@ -27,6 +28,12 @@ func RecallMsg(ctx context.Context, recallMsg *pbobjs.RecallMsgReq) errs.IMError
 	targetId := recallMsg.TargetId
 	appkey := bases.GetAppKeyFromCtx(ctx)
 	converId := commonservices.GetConversationId(bases.GetRequesterIdFromCtx(ctx), targetId, recallMsg.ChannelType)
+
+	if appInfo, ok := commonservices.GetAppInfo(appkey); ok && appInfo != nil && appInfo.RecallTimeLimitSec > 0 {
+		if time.Now().UnixMilli()-recallMsg.MsgTime > int64(appInfo.RecallTimeLimitSec)*1000 {
+			return errs.IMErrorCode_MSG_RECALL_TIMEOUT
+		}
+	}
 
 	//send recall msg
 	var flag int32 = 0

@@ -97,4 +97,45 @@ func Route(eng *gin.Engine, prefix string) {
 	group.POST("/binddevices/add", apis.AddBindDevice)
 	group.POST("/binddevices/del", apis.DelBindDevice)
 	group.GET("/binddevices/query", apis.QryBindDevices)
+
+	// Modern IM: Read Receipts 2.0
+	group.POST("/messages/read/detail", apis.QryReadDetail)
+	group.POST("/messages/read/group/mark", apis.MarkGroupMsgRead)
+
+	// Modern IM: Reactions (Message Emoji Reaction)
+	group.POST("/messages/reactions/add", apis.AddMsgReaction)
+	group.POST("/messages/reactions/del", apis.DelMsgReaction)
+	group.POST("/messages/reactions/query", apis.QryMsgReactions)
+
+	// Modern IM: Pinned Group Messages
+	group.POST("/groups/messages/pin", apis.SetGroupTopMsg)
+	group.POST("/groups/messages/unpin", apis.DelGroupTopMsg)
+	group.GET("/groups/messages/pinned", apis.GetGroupTopMsg)
+
+	// Modern IM: Ephemeral Typing Indicator
+	group.POST("/messages/typing/send", apis.SendTypingIndicator)
+
+	// Modern IM: Merged Forwarding
+	group.POST("/messages/merged/create", apis.CreateMergedMsgs)
+	group.POST("/messages/merged/query", apis.QryMergedMsgs)
+
+	// Super Admin: Server-to-Server Management APIs
+	group.POST("/messages/system/broadcast", apis.BroadcastSystemMessage)
+	group.POST("/messages/silent/send", apis.SendSilentMessage)
+	group.POST("/groups/force/create", apis.ForceCreateGroup)
+	group.POST("/groups/force/dissolve", apis.ForceDissolveGroup)
+	group.POST("/groups/mute/all", apis.MuteGroupAll)
+	group.POST("/users/force/kick", apis.ForceKickUser)
+
+	// Modern IM: Group Enterprise Capabilities
+	group.POST("/groups/admins/set", apis.SetGroupAdmins)
+	group.POST("/groups/admins/del", apis.DelGroupAdmins)
+	group.GET("/groups/admins/query", apis.QryGroupAdmins)
+	group.POST("/groups/owner/transfer", apis.TransferGroupOwner)
+	group.POST("/groups/announcement/set", apis.SetGroupAnnouncement)
+	group.GET("/groups/announcement/get", apis.GetGroupAnnouncement)
+
+	// Modern IM: Presence 2.0 (Rich Online Status & Custom Presence)
+	group.POST("/users/presence/set", apis.SetUserPresence)
+	group.POST("/users/presence/query", apis.QryUserPresence)
 }

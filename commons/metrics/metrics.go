@@ -112,16 +112,20 @@ func GetMemoryMetrics() (MemoryMetrics, error) {
 		return MemoryMetrics{}, fmt.Errorf("collect memory metrics: %w", err)
 	}
 
+	swapTotal := uint64Field(stats, "SwapTotal")
+	swapUsed := uint64Field(stats, "SwapUsed")
+	swapFree := uint64Field(stats, "SwapFree")
+
 	return MemoryMetrics{
 		TotalBytes:       stats.Total,
 		UsedBytes:        stats.Used,
 		FreeBytes:        stats.Free,
 		AvailableBytes:   memoryAvailableBytes(stats, stats.Free),
 		UsagePercent:     usagePercent(stats.Used, stats.Total),
-		SwapTotalBytes:   stats.SwapTotal,
-		SwapUsedBytes:    stats.SwapUsed,
-		SwapFreeBytes:    stats.SwapFree,
-		SwapUsagePercent: usagePercent(stats.SwapUsed, stats.SwapTotal),
+		SwapTotalBytes:   swapTotal,
+		SwapUsedBytes:    swapUsed,
+		SwapFreeBytes:    swapFree,
+		SwapUsagePercent: usagePercent(swapUsed, swapTotal),
 	}, nil
 }
 
@@ -218,6 +222,21 @@ func memoryAvailableBytes(stats any, fallback uint64) uint64 {
 	field := value.FieldByName("Available")
 	if !field.IsValid() || field.Kind() != reflect.Uint64 {
 		return fallback
+	}
+	return field.Uint()
+}
+
+func uint64Field(stats any, name string) uint64 {
+	value := reflect.ValueOf(stats)
+	if value.Kind() == reflect.Pointer {
+		value = value.Elem()
+	}
+	if value.Kind() != reflect.Struct {
+		return 0
+	}
+	field := value.FieldByName(name)
+	if !field.IsValid() || field.Kind() != reflect.Uint64 {
+		return 0
 	}
 	return field.Uint()
 }

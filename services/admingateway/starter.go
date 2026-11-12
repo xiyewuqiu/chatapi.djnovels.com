@@ -5,6 +5,7 @@ import (
 	"im-server/commons/configures"
 	"im-server/commons/gmicro"
 	"im-server/commons/logs"
+	"im-server/services/admingateway/routers"
 
 	"github.com/gin-gonic/gin"
 	consoleConfigures "github.com/juggleim/imserver-console/commons/configures"
@@ -40,6 +41,7 @@ func (ser *AdminGateway) Startup(args map[string]interface{}) {
 	ser.httpServer = gin.Default()
 	consoleRouters.Route(ser.httpServer, "admingateway")
 	consoleWeb.LoadAdminWeb(ser.httpServer)
+	routers.RouteV2(ser.httpServer)
 
 	httpPort := configures.Config.AdminGateway.HttpPort
 	go ser.httpServer.Run(fmt.Sprintf(":%d", httpPort))

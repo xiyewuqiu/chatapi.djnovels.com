@@ -36,18 +36,30 @@ func (app AppInfoDao) TableName() string {
 }
 
 func (app AppInfoDao) Create(item AppInfoDao) error {
-	err := dbcommons.GetDb().Create(&item).Error
+	db := dbcommons.GetDb()
+	if db == nil {
+		return fmt.Errorf("database not initialized")
+	}
+	err := db.Create(&item).Error
 	return err
 }
 
 func (app AppInfoDao) Upsert(item AppInfoDao) error {
+	db := dbcommons.GetDb()
+	if db == nil {
+		return fmt.Errorf("database not initialized")
+	}
 	sql := fmt.Sprintf("INSERT INTO %s (app_name,app_key,app_secret,app_secure_key,app_type,created_time)VALUES(?,?,?,?,?,?) ON DUPLICATE KEY UPDATE app_secret=?", app.TableName())
-	return dbcommons.GetDb().Exec(sql, item.AppName, item.AppKey, item.AppSecret, item.AppSecureKey, item.AppType, item.CreatedTime, item.AppSecret).Error
+	return db.Exec(sql, item.AppName, item.AppKey, item.AppSecret, item.AppSecureKey, item.AppType, item.CreatedTime, item.AppSecret).Error
 }
 
 func (app AppInfoDao) FindByAppkey(appkey string) *AppInfoDao {
+	db := dbcommons.GetDb()
+	if db == nil {
+		return nil
+	}
 	var appItem AppInfoDao
-	err := dbcommons.GetDb().Where("app_key=?", appkey).Take(&appItem).Error
+	err := db.Where("app_key=?", appkey).Take(&appItem).Error
 	if err != nil {
 		return nil
 	}
@@ -55,8 +67,12 @@ func (app AppInfoDao) FindByAppkey(appkey string) *AppInfoDao {
 }
 
 func (app AppInfoDao) FindById(id int64) *AppInfoDao {
+	db := dbcommons.GetDb()
+	if db == nil {
+		return nil
+	}
 	var appItem AppInfoDao
-	err := dbcommons.GetDb().Where("id=?", id).Take(&appItem).Error
+	err := db.Where("id=?", id).Take(&appItem).Error
 	if err != nil {
 		return nil
 	}
@@ -64,7 +80,11 @@ func (app AppInfoDao) FindById(id int64) *AppInfoDao {
 }
 
 func (app AppInfoDao) QryApps(limit int64, offset int64) ([]*AppInfoDao, error) {
+	db := dbcommons.GetDb()
+	if db == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
 	var list []*AppInfoDao
-	err := dbcommons.GetDb().Where("id < ?", offset).Order("id desc").Limit(int(limit)).Find(&list).Error
+	err := db.Where("id < ?", offset).Order("id desc").Limit(int(limit)).Find(&list).Error
 	return list, err
 }

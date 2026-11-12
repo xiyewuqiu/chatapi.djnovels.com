@@ -86,7 +86,7 @@ func (msg *BrdInboxMsgDao) QryMsgsBaseTime(appkey string, start int64, count int
 	if collection != nil {
 		filter := bson.M{"app_key": appkey, "send_time": bson.M{"$gt": start}}
 
-		cur, err := collection.Find(context.TODO(), filter, options.Find().SetSort(bson.D{{"send_time", 1}}), options.Find().SetLimit(int64(count)))
+		cur, err := collection.Find(context.TODO(), filter, options.Find().SetSort(bson.D{{Key: "send_time", Value: 1}}), options.Find().SetLimit(int64(count)))
 		defer func() {
 			if cur != nil {
 				cur.Close(context.TODO())
@@ -117,7 +117,7 @@ func (msg *BrdInboxMsgDao) QryLatestMsg(appkey string, count int) ([]*models.Brd
 	collection := msg.getCollection()
 	if collection != nil {
 		filter := bson.M{"app_key": appkey}
-		cur, err := collection.Find(context.TODO(), filter, options.Find().SetSort(bson.D{{"send_time", -1}}), options.Find().SetLimit(int64(count)))
+		cur, err := collection.Find(context.TODO(), filter, options.Find().SetSort(bson.D{{Key: "send_time", Value: -1}}), options.Find().SetLimit(int64(count)))
 		defer func() {
 			if cur != nil {
 				cur.Close(context.TODO())

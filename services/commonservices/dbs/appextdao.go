@@ -19,14 +19,22 @@ func (appExt AppExtDao) TableName() string {
 }
 
 func (appExt AppExtDao) FindListByAppkey(appkey string) []*AppExtDao {
+	db := dbcommons.GetDb()
+	if db == nil {
+		return []*AppExtDao{}
+	}
 	var list []*AppExtDao
-	dbcommons.GetDb().Where("app_key=?", appkey).Find(&list)
+	db.Where("app_key=?", appkey).Find(&list)
 	return list
 }
 
 func (appExt AppExtDao) Find(appkey string, itemKey string) (*AppExtDao, error) {
+	db := dbcommons.GetDb()
+	if db == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
 	var item AppExtDao
-	err := dbcommons.GetDb().Where("app_key=? and app_item_key=?", appkey, itemKey).Take(&item).Error
+	err := db.Where("app_key=? and app_item_key=?", appkey, itemKey).Take(&item).Error
 	if err != nil {
 		return nil, err
 	}
@@ -34,11 +42,19 @@ func (appExt AppExtDao) Find(appkey string, itemKey string) (*AppExtDao, error) 
 }
 
 func (appExt AppExtDao) FindByItemKeys(appkey string, itemKeys []string) ([]*AppExtDao, error) {
+	db := dbcommons.GetDb()
+	if db == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
 	var list []*AppExtDao
-	err := dbcommons.GetDb().Where("app_key=? and app_item_key in(?)", appkey, itemKeys).Find(&list).Error
+	err := db.Where("app_key=? and app_item_key in(?)", appkey, itemKeys).Find(&list).Error
 	return list, err
 }
 
 func (appExt AppExtDao) CreateOrUpdate(appkey string, fieldKey, fieldValue string) error {
-	return dbcommons.GetDb().Exec(fmt.Sprintf("INSERT INTO %s (app_key,app_item_key,app_item_value)VALUES(?,?,?) ON DUPLICATE KEY UPDATE app_item_value=?", appExt.TableName()), appkey, fieldKey, fieldValue, fieldValue).Error
+	db := dbcommons.GetDb()
+	if db == nil {
+		return fmt.Errorf("database not initialized")
+	}
+	return db.Exec(fmt.Sprintf("INSERT INTO %s (app_key,app_item_key,app_item_value)VALUES(?,?,?) ON DUPLICATE KEY UPDATE app_item_value=?", appExt.TableName()), appkey, fieldKey, fieldValue, fieldValue).Error
 }
