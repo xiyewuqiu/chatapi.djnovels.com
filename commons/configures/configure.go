@@ -4,6 +4,7 @@ import (
 	"flag"
 	"im-server/commons/tools"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -68,6 +69,10 @@ type ImConfig struct {
 
 	AdminGateway struct {
 		HttpPort int `yaml:"httpPort"`
+		// BindAddr 是管理台监听地址。留空即只监听回环（安全默认值）：
+		// 管理台能建租户、改策略、撤消息、翻审计，不该出现在任何网卡上。
+		// 运维需要远程使用时走 SSH 隧道，不要改成 0.0.0.0。
+		BindAddr string `yaml:"bindAddr"`
 	} `yaml:"adminGateway"`
 	AdminSecret string `yaml:"adminSecret"`
 
@@ -78,6 +83,17 @@ type ImConfig struct {
 
 func (conf ImConfig) GetApiPort() int {
 	return conf.ApiGateway.HttpPort
+}
+
+// GetAdminBindAddr 返回管理台的监听地址。
+//
+// 刻意不返回空字符串：gin 的 Run(":8090") 等价于监听 0.0.0.0，
+// 管理台能力等同根权限，任何"没配就全网卡"的默认值都是事故。
+func (conf ImConfig) GetAdminBindAddr() string {
+	if addr := strings.TrimSpace(conf.AdminGateway.BindAddr); addr != "" {
+		return addr
+	}
+	return "127.0.0.1"
 }
 
 var Config ImConfig

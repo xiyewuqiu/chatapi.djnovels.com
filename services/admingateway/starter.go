@@ -44,8 +44,9 @@ func (ser *AdminGateway) Startup(args map[string]interface{}) {
 	routers.RouteV2(ser.httpServer)
 
 	httpPort := configures.Config.AdminGateway.HttpPort
-	go ser.httpServer.Run(fmt.Sprintf(":%d", httpPort))
-	fmt.Println("Start admingateway with port:", httpPort)
+	addr := fmt.Sprintf("%s:%d", configures.Config.GetAdminBindAddr(), httpPort)
+	go ser.httpServer.Run(addr)
+	fmt.Println("Start admingateway with addr:", addr)
 }
 
 func (ser *AdminGateway) Shutdown(force bool) {

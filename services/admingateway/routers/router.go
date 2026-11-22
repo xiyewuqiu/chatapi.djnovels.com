@@ -9,7 +9,9 @@ import (
 func RouteV2(eng *gin.Engine) {
 	LoadAdminWeb(eng)
 
-	v2 := eng.Group("/admingateway/v2")
+	// v2 是本地新增的运维接口，能力等同根权限，必须自己挂闸。
+	// 上游 console 的 consoleRouters 鉴权只覆盖它自己注册的那批路由，管不到这里。
+	v2 := eng.Group("/admingateway/v2", apis.RequireAdminToken)
 	{
 		v2.POST("/apps/create", apis.CreateApp)
 		v2.GET("/apps/list", apis.ListApps)

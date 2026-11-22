@@ -35,6 +35,14 @@
       </div>
     </div>
     <div class="flex items-center space-x-4">
+      <div class="flex items-center space-x-2">
+        <input id="admin-token" type="password" placeholder="管理口令（X-Admin-Token）" autocomplete="off"
+          class="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-md px-3 py-1.5 w-56 focus:outline-none focus:border-blue-500">
+        <button onclick="saveAdminToken()"
+          class="text-slate-300 hover:text-white text-sm bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-md transition">
+          保存口令
+        </button>
+      </div>
       <span
         class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span> 服务运行正常
@@ -45,6 +53,13 @@
       </button>
     </div>
   </header>
+
+  <!-- 鉴权提示条 -->
+  <div id="auth-banner" class="hidden max-w-7xl mx-auto px-6 pt-4">
+    <div class="bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm rounded-lg px-4 py-3 flex items-start">
+      <i class="fa-solid fa-lock mr-2 mt-0.5"></i><span id="auth-banner-text"></span>
+    </div>
+  </div>
 
   <!-- Metric Overview Cards -->
   <div class="max-w-7xl mx-auto px-6 pt-6">
@@ -313,6 +328,49 @@
   <script>
     let currentPolicyAppKey = '';
 
+    // ---------- 运维凭据 ----------
+    // /admingateway/v2/* 全部要求 X-Admin-Token，值来自服务端配置 adminSecret。
+    // 口令只放 sessionStorage：关掉标签页即失效，不落盘、不进 URL、不进日志。
+    const ADMIN_TOKEN_KEY = 'dj-admin-token';
+
+    function getAdminToken() {
+      return sessionStorage.getItem(ADMIN_TOKEN_KEY) || '';
+    }
+
+    function showAuthBanner(text) {
+      const banner = document.getElementById('auth-banner');
+      document.getElementById('auth-banner-text').innerText = text;
+      banner.classList.remove('hidden');
+    }
+
+    function saveAdminToken() {
+      const value = document.getElementById('admin-token').value.trim();
+      if (!value) {
+        alert('口令不能为空');
+        return;
+      }
+      sessionStorage.setItem(ADMIN_TOKEN_KEY, value);
+      document.getElementById('auth-banner').classList.add('hidden');
+      fetchOverview();
+      fetchTenants();
+    }
+
+    // 所有 v2 请求的统一出口：这里加头，业务代码不必各写一遍。
+    function adminFetch(url, options) {
+      const opts = Object.assign({}, options || {});
+      const headers = Object.assign({}, opts.headers || {});
+      headers['X-Admin-Token'] = getAdminToken();
+      opts.headers = headers;
+      return window.fetch(url, opts).then(res => {
+        if (res.status === 401) {
+          showAuthBanner('口令无效或缺失。请在右上角填入服务端 conf/config.yml 里的 adminSecret。');
+        } else if (res.status === 503) {
+          showAuthBanner('服务端未配置 adminSecret，/admingateway/v2 已按安全默认值停用。');
+        }
+        return res;
+      });
+    }
+
     function switchTab(tab) {
       ['tenants', 'audit', 'system'].forEach(t => {
         document.getElementById('tab-' + t).classList.add('hidden');
@@ -329,7 +387,7 @@
 
     async function fetchOverview() {
       try {
-        const res = await fetch('/admingateway/v2/metrics/overview');
+        const res = await adminFetch('/admingateway/v2/metrics/overview');
         const json = await res.json();
         if (json.code === 0 && json.data) {
           const s = json.data.summary || {};
@@ -363,7 +421,7 @@
 
     async function fetchTenants() {
       try {
-        const res = await fetch('/admingateway/v2/apps/list?page=1&size=50');
+        const res = await adminFetch('/admingateway/v2/apps/list?page=1&size=50');
         const json = await res.json();
         const tbody = document.getElementById('tenant-list-body');
         if (json.code === 0 && json.data && json.data.items) {
@@ -405,7 +463,7 @@
       const key = document.getElementById('input-app-key').value.trim();
       if (!name) return alert('请输入应用名称');
       try {
-        const res = await fetch('/admingateway/v2/apps/create', {
+        const res = await adminFetch('/admingateway/v2/apps/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ app_name: name, app_key: key })
@@ -428,7 +486,7 @@
       document.getElementById('policy-target-appkey').innerText = appKey;
       document.getElementById('modal-policy').classList.remove('hidden');
       try {
-        const res = await fetch('/admingateway/v2/apps/policies/get?app_key=' + encodeURIComponent(appKey));
+        const res = await adminFetch('/admingateway/v2/apps/policies/get?app_key=' + encodeURIComponent(appKey));
         const json = await res.json();
         if (json.code === 0 && json.data) {
           const d = json.data;
@@ -454,7 +512,7 @@
           pre_send_webhook_url: document.getElementById('policy-presend-url').value.trim(),
           post_send_webhook_url: document.getElementById('policy-postsend-url').value.trim()
         };
-        const res = await fetch('/admingateway/v2/apps/policies/set', {
+        const res = await adminFetch('/admingateway/v2/apps/policies/set', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -479,7 +537,7 @@
       const tbody = document.getElementById('audit-list-body');
       tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">查询中...</td></tr>';
       try {
-        const res = await fetch('/admingateway/v2/audit/messages?app_key=' + encodeURIComponent(appKey) + '&channel_type=' + channelType + '&sender_id=' + encodeURIComponent(sender));
+        const res = await adminFetch('/admingateway/v2/audit/messages?app_key=' + encodeURIComponent(appKey) + '&channel_type=' + channelType + '&sender_id=' + encodeURIComponent(sender));
         const json = await res.json();
         if (json.code === 0 && json.data && json.data.items) {
           if (json.data.items.length === 0) {
@@ -508,7 +566,7 @@
     async function adminRecall(appKey, msgId, channelType) {
       if (!confirm('确定要强制撤回并清空该违规消息吗？')) return;
       try {
-        const res = await fetch('/admingateway/v2/audit/messages/recall', {
+        const res = await adminFetch('/admingateway/v2/audit/messages/recall', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ app_key: appKey, msg_id: msgId, channel_type: channelType })
@@ -531,7 +589,7 @@
       const channelType = document.getElementById('audit-type').value;
       try {
         const url = '/admingateway/v2/audit/export?app_key=' + encodeURIComponent(appKey) + '&channel_type=' + channelType + '&limit=5000';
-        const res = await fetch(url);
+        const res = await adminFetch(url);
         const json = await res.json();
         if (json.code === 0 && json.data) {
           const blob = new Blob([JSON.stringify(json.data, null, 2)], { type: 'application/json' });
@@ -552,6 +610,10 @@
     }
 
     // Init
+    const savedToken = getAdminToken();
+    if (savedToken) {
+      document.getElementById('admin-token').value = savedToken;
+    }
     fetchOverview();
     fetchTenants();
   </script>
