@@ -220,7 +220,7 @@ func SearchHisMsgs(ctx *gin.Context) {
 		}
 	}
 
-	tools.SuccessHttpResp(ctx, gin.H{
+	result := gin.H{
 		"hits":            hits,
 		"count":           len(hits),
 		"scanned":         len(collected),
@@ -228,7 +228,14 @@ func SearchHisMsgs(ctx *gin.Context) {
 		"candidate_limit": SearchCandidateLimit * searchMaxBatches,
 		"window_from":     from,
 		"window_to":       to,
-	})
+	}
+	// truncated=true 表示"更早的还没扫"。这里直接给出下一次该用的 to_time，
+	// 客户端拿它再发一次请求就能继续往前搜——等价于无限翻页，
+	// 而服务端每次请求的扫描量仍然有界。
+	if truncated && len(collected) > 0 {
+		result["next_to_time"] = collected[len(collected)-1].MsgTime - 1
+	}
+	tools.SuccessHttpResp(ctx, result)
 }
 
 // normalizeSearchWindow 钳制搜索时间窗。
