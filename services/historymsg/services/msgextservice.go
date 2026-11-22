@@ -156,7 +156,7 @@ func QryMsgExts(ctx context.Context, req *pbobjs.QryMsgExtReq) (errs.IMErrorCode
 	msgMap := map[string][]byte{}
 	if req.ChannelType == pbobjs.ChannelType_Private {
 		storage := storages.NewPrivateHisMsgStorage()
-		msgs, err := storage.FindByIds(appkey, converId, req.SubChannel, req.MsgIds, 0)
+		msgs, err := storage.FindByIds(appkey, converId, req.SubChannel, req.MsgIds, RetentionFloor(appkey))
 		if err == nil {
 			for _, msg := range msgs {
 				msgMap[msg.MsgId] = msg.MsgExt
@@ -164,7 +164,7 @@ func QryMsgExts(ctx context.Context, req *pbobjs.QryMsgExtReq) (errs.IMErrorCode
 		}
 	} else if req.ChannelType == pbobjs.ChannelType_Group {
 		storage := storages.NewGroupHisMsgStorage()
-		msgs, err := storage.FindByIds(appkey, converId, req.SubChannel, req.MsgIds, 0)
+		msgs, err := storage.FindByIds(appkey, converId, req.SubChannel, req.MsgIds, RetentionFloor(appkey))
 		if err == nil {
 			for _, msg := range msgs {
 				msgMap[msg.MsgId] = msg.MsgExt
@@ -360,7 +360,7 @@ func QryMsgExSets(ctx context.Context, req *pbobjs.QryMsgExtReq) (errs.IMErrorCo
 	msgMap := map[string][]byte{}
 	if req.ChannelType == pbobjs.ChannelType_Private {
 		storage := storages.NewPrivateHisMsgStorage()
-		msgs, err := storage.FindByIds(appkey, converId, req.SubChannel, req.MsgIds, 0)
+		msgs, err := storage.FindByIds(appkey, converId, req.SubChannel, req.MsgIds, RetentionFloor(appkey))
 		if err == nil {
 			for _, msg := range msgs {
 				msgMap[msg.MsgId] = msg.MsgExset
@@ -368,7 +368,7 @@ func QryMsgExSets(ctx context.Context, req *pbobjs.QryMsgExtReq) (errs.IMErrorCo
 		}
 	} else if req.ChannelType == pbobjs.ChannelType_Group {
 		storage := storages.NewGroupHisMsgStorage()
-		msgs, err := storage.FindByIds(appkey, converId, req.SubChannel, req.MsgIds, 0)
+		msgs, err := storage.FindByIds(appkey, converId, req.SubChannel, req.MsgIds, RetentionFloor(appkey))
 		if err == nil {
 			for _, msg := range msgs {
 				msgMap[msg.MsgId] = msg.MsgExset

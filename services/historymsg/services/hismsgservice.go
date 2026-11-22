@@ -236,6 +236,8 @@ func QryFirstUnreadMsg(ctx context.Context, req *pbobjs.QryFirstUnreadMsgReq) (e
 	converId := commonservices.GetConversationId(userId, targetId, channelType)
 	var count int32 = 1
 	var startTime int64 = 0
+	// 未读消息同样受保留期约束：已过期的残留不该被当成"未读"推给客户端。
+	floor := RetentionFloor(appkey)
 	hasUnread, sTime := qryLatestReadMsgTime(ctx, userId, targetId, req.SubChannel, channelType)
 	if hasUnread {
 		startTime = sTime
@@ -245,7 +247,7 @@ func QryFirstUnreadMsg(ctx context.Context, req *pbobjs.QryFirstUnreadMsgReq) (e
 
 	if channelType == pbobjs.ChannelType_Private {
 		storage := storages.NewPrivateHisMsgStorage()
-		msgs, err := storage.QryHisMsgs(appkey, converId, req.SubChannel, startTime, count, true, 0, []string{}, []string{})
+		msgs, err := storage.QryHisMsgs(appkey, converId, req.SubChannel, startTime, count, true, floor, []string{}, []string{})
 		if err == nil {
 			for _, msg := range msgs {
 				downMsg := &pbobjs.DownMsg{}
@@ -274,7 +276,7 @@ func QryFirstUnreadMsg(ctx context.Context, req *pbobjs.QryFirstUnreadMsgReq) (e
 		}
 	} else if channelType == pbobjs.ChannelType_System {
 		storage := storages.NewSystemHisMsgStorage()
-		dbMsgs, err := storage.QryHisMsgs(appkey, converId, startTime, count, true, 0, []string{})
+		dbMsgs, err := storage.QryHisMsgs(appkey, converId, startTime, count, true, floor, []string{})
 		if err == nil {
 			for _, dbMsg := range dbMsgs {
 				downMsg := &pbobjs.DownMsg{}
@@ -295,7 +297,7 @@ func QryFirstUnreadMsg(ctx context.Context, req *pbobjs.QryFirstUnreadMsgReq) (e
 		}
 	} else if channelType == pbobjs.ChannelType_Group {
 		storage := storages.NewGroupHisMsgStorage()
-		dbMsgs, err := storage.QryHisMsgs(appkey, converId, req.SubChannel, userId, startTime, count, true, 0, []string{}, []string{})
+		dbMsgs, err := storage.QryHisMsgs(appkey, converId, req.SubChannel, userId, startTime, count, true, floor, []string{}, []string{})
 		if err == nil {
 			for _, dbMsg := range dbMsgs {
 				downMsg := &pbobjs.DownMsg{}
@@ -328,11 +330,13 @@ func QryFirstUnreadMsg(ctx context.Context, req *pbobjs.QryFirstUnreadMsgReq) (e
 
 func QryHisMsgs(ctx context.Context, appkey, targetId, subChannel string, channelType pbobjs.ChannelType, startTime int64, count int32, isPositive bool, msgTypes []string) (errs.IMErrorCode, *pbobjs.DownMsgSet) {
 	userId := bases.GetRequesterIdFromCtx(ctx)
+	// 群发/广播没有单聊那套"用户清除时间"，但保留期是租户级契约，一样要钳住。
+	floor := RetentionFloor(appkey)
 	resp := &pbobjs.DownMsgSet{
 		Msgs: []*pbobjs.DownMsg{},
 	}
 	if channelType == pbobjs.ChannelType_Private {
-		cleanTime := GetCleanTime(appkey, userId, targetId, subChannel, channelType)
+		cleanTime := GetEffectiveCleanTime(appkey, userId, targetId, subChannel, channelType)
 		storage := storages.NewPrivateHisMsgStorage()
 		converId := commonservices.GetConversationId(userId, targetId, channelType)
 		dbMsgs, err := storage.QryHisMsgsExcludeDel(appkey, converId, subChannel, userId, targetId, startTime, count, isPositive, cleanTime, msgTypes)
@@ -410,7 +414,7 @@ func QryHisMsgs(ctx context.Context, appkey, targetId, subChannel string, channe
 	} else if channelType == pbobjs.ChannelType_System {
 		storage := storages.NewSystemHisMsgStorage()
 		converId := commonservices.GetConversationId(userId, targetId, channelType)
-		cleanTime := GetCleanTime(appkey, userId, targetId, subChannel, channelType)
+		cleanTime := GetEffectiveCleanTime(appkey, userId, targetId, subChannel, channelType)
 		dbMsgs, err := storage.QryHisMsgs(appkey, converId, startTime, count, isPositive, cleanTime, msgTypes)
 		if err == nil {
 			for _, dbMsg := range dbMsgs {
@@ -453,7 +457,7 @@ func QryHisMsgs(ctx context.Context, appkey, targetId, subChannel string, channe
 				}
 			}
 		}
-		dbCleanTime := GetCleanTime(appkey, userId, targetId, subChannel, channelType)
+		dbCleanTime := GetEffectiveCleanTime(appkey, userId, targetId, subChannel, channelType)
 		if dbCleanTime > cleanTime {
 			cleanTime = dbCleanTime
 		}
@@ -543,7 +547,7 @@ func QryHisMsgs(ctx context.Context, appkey, targetId, subChannel string, channe
 	} else if channelType == pbobjs.ChannelType_GroupCast {
 		storage := storages.NewGrpCastHisMsgStorage()
 		converId := commonservices.GetConversationId(userId, targetId, channelType)
-		dbMsgs, err := storage.QryHisMsgs(appkey, converId, startTime, count, isPositive, 0, msgTypes)
+		dbMsgs, err := storage.QryHisMsgs(appkey, converId, startTime, count, isPositive, floor, msgTypes)
 		if err == nil {
 			for _, dbMsg := range dbMsgs {
 				downMsg := &pbobjs.DownMsg{}
@@ -563,7 +567,7 @@ func QryHisMsgs(ctx context.Context, appkey, targetId, subChannel string, channe
 	} else if channelType == pbobjs.ChannelType_BroadCast {
 		storage := storages.NewBrdCastHisMsgStorage()
 		converId := commonservices.GetConversationId(userId, targetId, channelType)
-		dbMsgs, err := storage.QryHisMsgs(appkey, converId, startTime, count, isPositive, 0, msgTypes)
+		dbMsgs, err := storage.QryHisMsgs(appkey, converId, startTime, count, isPositive, floor, msgTypes)
 		if err == nil {
 			for _, dbMsg := range dbMsgs {
 				downMsg := &pbobjs.DownMsg{}
@@ -604,7 +608,7 @@ func retrievePrivateReferenceMsg(ctx context.Context, targetId, subChannel strin
 	userId := bases.GetRequesterIdFromCtx(ctx)
 	storage := storages.NewPrivateHisMsgStorage()
 	converId := commonservices.GetConversationId(userId, targetId, pbobjs.ChannelType_Private)
-	dbMsgs, err := storage.FindByIds(appkey, converId, subChannel, referencedMsgIds, 0)
+	dbMsgs, err := storage.FindByIds(appkey, converId, subChannel, referencedMsgIds, RetentionFloor(appkey))
 	if err == nil && len(dbMsgs) > 0 {
 		delMarkMap := map[string]bool{}
 		delStorage := storages.NewPrivateDelHisMsgStorage()
@@ -658,7 +662,7 @@ func retrieveGrpReferenceMsg(ctx context.Context, targetId, subChannel string, h
 	userId := bases.GetRequesterIdFromCtx(ctx)
 	converId := commonservices.GetConversationId(userId, targetId, pbobjs.ChannelType_Group)
 	storage := storages.NewGroupHisMsgStorage()
-	dbMsgs, err := storage.FindByIds(appkey, converId, subChannel, referencedMsgIds, 0)
+	dbMsgs, err := storage.FindByIds(appkey, converId, subChannel, referencedMsgIds, RetentionFloor(appkey))
 	if err == nil && len(dbMsgs) > 0 {
 		delMarkMap := map[string]bool{}
 		delStorage := storages.NewGroupDelHisMsgStorage()
@@ -744,7 +748,7 @@ func QryHisMsgByIds(ctx context.Context, req *pbobjs.QryHisMsgByIdsReq) *pbobjs.
 	appkey := bases.GetAppKeyFromCtx(ctx)
 	targetId := req.TargetId
 	converId := commonservices.GetConversationId(userId, targetId, req.ChannelType)
-	cleanTime := GetCleanTime(appkey, userId, targetId, req.SubChannel, req.ChannelType)
+	cleanTime := GetEffectiveCleanTime(appkey, userId, targetId, req.SubChannel, req.ChannelType)
 	resp := &pbobjs.DownMsgSet{
 		Msgs:       []*pbobjs.DownMsg{},
 		IsFinished: true,
@@ -823,6 +827,49 @@ func GetCleanTime(appkey, userId, targetId, subChannel string, channelType pbobj
 	} else {
 		return cleanTime
 	}
+}
+
+// RetentionFloor 返回该租户保留期对应的时间下界；0 表示不设下界。
+//
+// 为什么读路径也要这条下界：引擎的过期清理挂在「保存历史消息」路径上，按应用 60 秒节流
+// （services/historymsg/services/hismsgservice.go 的 tasks.TaskExecute）。
+// 也就是说库里必然存在「已过期但还没被清掉」的残留，只看数据库层，
+// 「保留 7 天」对用户并不成立——请求把 startTime 拉到很早就能读到。
+func RetentionFloor(appkey string) int64 {
+	appInfo, exist := commonservices.GetAppInfo(appkey)
+	if !exist || appInfo == nil {
+		return 0
+	}
+	return retentionFloorAt(appInfo.HisMsgSaveDay, time.Now().UnixMilli())
+}
+
+// retentionFloorAt 把保留天数换算成时间下界；days<=0 表示该租户未设置保留期。
+// 抽成纯函数是为了让换算口径能被单测钉住，不必连库。
+func retentionFloorAt(days int, nowMillis int64) int64 {
+	if days <= 0 {
+		return 0
+	}
+	return nowMillis - int64(days)*24*60*60*1000
+}
+
+// GetEffectiveCleanTime 是读路径统一的时间下界：用户清除时间与租户保留期取较大者。
+//
+// 合并放在这里而不是各调用点，原因是 DAO 层把 cleanTime 同时用于两种翻页方向：
+//   - 正序：start = max(startTime, cleanTime)
+//   - 倒序：send_time > cleanTime
+//
+// 所以只要把保留期下界并入 cleanTime，两个方向都自动生效，不必改 DAO 签名。
+func GetEffectiveCleanTime(appkey, userId, targetId, subChannel string, channelType pbobjs.ChannelType) int64 {
+	cleanTime := GetCleanTime(appkey, userId, targetId, subChannel, channelType)
+	return maxCleanTime(cleanTime, RetentionFloor(appkey))
+}
+
+// maxCleanTime 取两个时间下界的较大者：0 视为"无下界"。
+func maxCleanTime(cleanTime, floor int64) int64 {
+	if floor > cleanTime {
+		return floor
+	}
+	return cleanTime
 }
 
 func CleanHisMsg(ctx context.Context, req *pbobjs.CleanHisMsgReq) errs.IMErrorCode {
@@ -1043,6 +1090,9 @@ func DelHisMsg(ctx context.Context, req *pbobjs.DelHisMsgsReq) errs.IMErrorCode 
 			}
 			//check permission
 			if !bases.GetIsFromApiFromCtx(ctx) || (bases.GetIsFromApiFromCtx(ctx) && req.CheckPermission) {
+				// 刻意保留 cleanTime=0：本查询只用于核对 sender 是否为本人。
+				// 加保留期下界会让过期消息查不到，下面的循环一条都不执行，
+				// 等于把「只能删自己的消息」这条权限直接放开。
 				delMsgs, err := pStorage.FindByIds(appkey, converId, req.SubChannel, delMsgIds, 0)
 				if err == nil {
 					for _, delMsg := range delMsgs {
@@ -1065,6 +1115,7 @@ func DelHisMsg(ctx context.Context, req *pbobjs.DelHisMsgsReq) errs.IMErrorCode 
 			}
 			//check permission
 			if !bases.GetIsFromApiFromCtx(ctx) || (bases.GetIsFromApiFromCtx(ctx) && req.CheckPermission) {
+				// 同私聊分支：cleanTime=0 是刻意的，加下界会让权限校验失效。
 				delMsgs, err := gStorage.FindByIds(appkey, converId, req.SubChannel, delMsgIds, 0)
 				if err == nil {
 					for _, delMsg := range delMsgs {

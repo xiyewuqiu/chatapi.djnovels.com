@@ -30,7 +30,7 @@ func MergeMsg(ctx context.Context, mergeMsgReq *pbobjs.MergeMsgReq) {
 		converId := commonservices.GetConversationId(userId, targetId, channelType)
 		if channelType == pbobjs.ChannelType_Private {
 			storage := storages.NewPrivateHisMsgStorage()
-			msgs, err := storage.FindByIds(appkey, converId, mergeMsgReq.SubChannel, msgIds, 0)
+			msgs, err := storage.FindByIds(appkey, converId, mergeMsgReq.SubChannel, msgIds, RetentionFloor(appkey))
 			if err == nil {
 				for _, msg := range msgs {
 					mergedMsgs = append(mergedMsgs, models.MergedMsg{
@@ -48,7 +48,7 @@ func MergeMsg(ctx context.Context, mergeMsgReq *pbobjs.MergeMsgReq) {
 			}
 		} else if channelType == pbobjs.ChannelType_Group {
 			storage := storages.NewGroupHisMsgStorage()
-			msgs, err := storage.FindByIds(appkey, converId, mergeMsgReq.SubChannel, msgIds, 0)
+			msgs, err := storage.FindByIds(appkey, converId, mergeMsgReq.SubChannel, msgIds, RetentionFloor(appkey))
 			if err == nil {
 				for _, msg := range msgs {
 					mergedMsgs = append(mergedMsgs, models.MergedMsg{
