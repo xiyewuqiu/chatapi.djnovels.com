@@ -442,24 +442,9 @@ func QryHisMsgs(ctx context.Context, appkey, targetId, subChannel string, channe
 		targetUserInfo := commonservices.GetTargetDisplayUserInfo(ctx, targetId)
 		resp.TargetUserInfo = targetUserInfo
 	} else if channelType == pbobjs.ChannelType_Group {
-		var cleanTime int64 = 0
-		if !bases.GetIsFromApiFromCtx(ctx) {
-			appInfo, exist := commonservices.GetAppInfo(appkey)
-			if exist && appInfo != nil {
-				if !appInfo.NotCheckGrpMember {
-					memberSettings := qryGrpMemberSettings(ctx, targetId, userId)
-					if memberSettings == nil || !memberSettings.IsMember { // not group member
-						return errs.IMErrorCode_GROUP_NOTGROUPMEMBER, nil
-					}
-					if memberSettings.GrpMemberSetting.HideGrpMsg {
-						cleanTime = memberSettings.JoinTime
-					}
-				}
-			}
-		}
-		dbCleanTime := GetEffectiveCleanTime(appkey, userId, targetId, subChannel, channelType)
-		if dbCleanTime > cleanTime {
-			cleanTime = dbCleanTime
+		cleanTime, code := ResolveGroupReadFloor(ctx, appkey, userId, targetId, subChannel)
+		if code != errs.IMErrorCode_SUCCESS {
+			return code, nil
 		}
 		converId := commonservices.GetConversationId(userId, targetId, channelType)
 		dbMsgs := qryGrpHisMsgs(ctx, converId, subChannel, userId, startTime, count, isPositive, cleanTime, msgTypes)
@@ -870,6 +855,36 @@ func maxCleanTime(cleanTime, floor int64) int64 {
 		return floor
 	}
 	return cleanTime
+}
+
+// ResolveGroupReadFloor 解析群历史读取的时间下界，同时完成成员校验。
+//
+// QryHisMsgs 与 SearchHisMsgs 必须共用这一套规则。少了任何一条校验，
+// 搜索都会变成后门：「非成员不能看群消息」和「入群前消息不可见」都会被绕过去。
+//
+// 返回的下界取三者最大：
+//   - 用户清除时间与租户保留期（GetEffectiveCleanTime 已合并）
+//   - 入群时间（群配置为"新成员看不到入群前消息"时）
+//
+// API 来源的调用（服务端/运维）不校验成员身份，与 QryHisMsgs 的行为保持一致。
+func ResolveGroupReadFloor(ctx context.Context, appkey, userId, targetId, subChannel string) (int64, errs.IMErrorCode) {
+	var floor int64 = 0
+	if !bases.GetIsFromApiFromCtx(ctx) {
+		appInfo, exist := commonservices.GetAppInfo(appkey)
+		if exist && appInfo != nil && !appInfo.NotCheckGrpMember {
+			memberSettings := qryGrpMemberSettings(ctx, targetId, userId)
+			if memberSettings == nil || !memberSettings.IsMember {
+				return 0, errs.IMErrorCode_GROUP_NOTGROUPMEMBER
+			}
+			if memberSettings.GrpMemberSetting.HideGrpMsg {
+				floor = memberSettings.JoinTime
+			}
+		}
+	}
+	if dbFloor := GetEffectiveCleanTime(appkey, userId, targetId, subChannel, pbobjs.ChannelType_Group); dbFloor > floor {
+		floor = dbFloor
+	}
+	return floor, errs.IMErrorCode_SUCCESS
 }
 
 func CleanHisMsg(ctx context.Context, req *pbobjs.CleanHisMsgReq) errs.IMErrorCode {

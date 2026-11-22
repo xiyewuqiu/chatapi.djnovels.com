@@ -40,6 +40,7 @@ func Route(eng *gin.Engine, prefix string) {
 	group.POST("/hismsgs/del", apis.DelHisMsgs)
 	group.POST("/hismsgs/modify", apis.ModifyHisMsg)
 	group.POST("/hismsgs/import", apis.ImportHisMsg)
+	group.POST("/hismsgs/search", apis.SearchHisMsgs)
 
 	group.POST("/private/globalmutemembers/add", apis.AddPrivateGlobalMuteMembers)
 	group.POST("/private/globalmutemembers/del", apis.DelPrivateGlobalMuteMembers)

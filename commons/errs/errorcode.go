@@ -29,6 +29,9 @@ var (
 	IMErrorCode_API_INTERNAL_RESP_FAIL IMErrorCode = 10009
 	IMErrorCode_API_PARAM_REQUIRED     IMErrorCode = 10010
 	IMErrorCode_API_PARAM_ILLEGAL      IMErrorCode = 10011
+	// IMErrorCode_API_RATE_LIMITED 表示触发进程内限流（搜索等重操作）。
+	// 与"参数错误"区分开，调用方才知道该退避重试而不是改参数。
+	IMErrorCode_API_RATE_LIMITED IMErrorCode = 10012
 )
 
 // user errorcode
@@ -214,6 +217,7 @@ var imCode2ApiErrorMap map[IMErrorCode]*ApiErrorMsg = map[IMErrorCode]*ApiErrorM
 	IMErrorCode_API_INTERNAL_TIMEOUT:   newApiErrorMsg(500, IMErrorCode_API_INTERNAL_TIMEOUT, "internal service timeout"),
 	IMErrorCode_API_INTERNAL_RESP_FAIL: newApiErrorMsg(500, IMErrorCode_API_INTERNAL_RESP_FAIL, "internal service error"),
 	IMErrorCode_API_PARAM_REQUIRED:     newApiErrorMsg(400, IMErrorCode_API_PARAM_REQUIRED, "required params missing."),
+	IMErrorCode_API_RATE_LIMITED:       newApiErrorMsg(429, IMErrorCode_API_RATE_LIMITED, "too many requests"),
 
 	//conn
 	IMErrorCode_CONNECT_DEFAULT:         newApiErrorMsg(200, IMErrorCode_CONNECT_DEFAULT, "default error"),
