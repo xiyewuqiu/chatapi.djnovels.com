@@ -49,7 +49,6 @@ import (
 	jimConfigures "github.com/juggleim/jugglechat-server/commons/configures"
 	jimDb "github.com/juggleim/jugglechat-server/commons/dbcommons"
 	jimLog "github.com/juggleim/jugglechat-server/log"
-	jimRouters "github.com/juggleim/jugglechat-server/routers"
 )
 
 func main() {
@@ -158,7 +157,18 @@ func RouteNav(mux *http.ServeMux) {
 	mux.Handle("/navigator/", ginEngine)
 }
 
-func RouteJuggleChat(mux *http.ServeMux) {
+// RouteJuggleChat 保留内嵌业务层的初始化，但**不再挂载它的 HTTP 路由**。
+//
+// 背景：引擎二进制里内嵌了一份 jugglechat-server（v1.1.21），它和独立部署的业务层
+// 共用同一个 im_db。两边的版本不同源，同时对外提供 /jim/* 就意味着
+// "同一张表被两个版本的代码读写"——客户端连错端口时会看到"功能时好时坏"，
+// 排查起来极难。65103 上的这些路由在生产靠 Nginx 收敛本来就不可达，
+// 所以摘掉它们不改变可用能力，只消除风险。
+//
+// 初始化照旧保留：引擎的其它组件与内嵌副本共用同一份 conf/config.yml，
+// 但**不再调用 jimDb.Upgrade()**——业务层的表结构由业务层进程自己负责迁移，
+// 引擎不该去改它的表。
+func RouteJuggleChat(_ *http.ServeMux) {
 	if err := jimConfigures.InitConfigures(); err != nil {
 		fmt.Println("Init Jim Configures failed", err)
 		return
@@ -170,12 +180,4 @@ func RouteJuggleChat(mux *http.ServeMux) {
 		fmt.Println("Init Jim Mysql failed")
 		return
 	}
-	jimDb.Upgrade()
-
-	ginEngine := gin.Default()
-	jimRouters.Route(ginEngine, "jim")
-	jimRouters.LoadWebIM(ginEngine)
-
-	mux.Handle("/", ginEngine)
-	mux.Handle("/jim/", ginEngine)
 }
