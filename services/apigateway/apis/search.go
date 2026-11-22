@@ -2,6 +2,7 @@ package apis
 
 import (
 	"encoding/json"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -29,11 +30,18 @@ const (
 	SearchDefaultLimit = 20
 	SearchMaxLimit     = 50
 
-	// 拉多少条候选再在内存里过滤。
+	// 拉多少条候选再在内存里过滤（单页大小）。
 	//
-	// 这是"第一步"方案的硬边界：搜索只能覆盖会话最近这么些条消息，
-	// 不是全量检索。想搜更早的内容需要上内容索引（第二步），那是另一个工程。
+	// 不建内容索引的代价就在这里：只能靠翻页覆盖时间范围。
 	SearchCandidateLimit = 500
+
+	// 最多往回翻几页。5 × 500 = 2500 条，覆盖时间窗内的绝大部分会话；
+	// 翻满还没到底时响应里 truncated=true，如实告诉调用方"还有更早的没扫"。
+	searchMaxBatches = 5
+
+	// 搜索时间窗：缺省 7 天（与默认保留期一致），上限 30 天。
+	searchDefaultWindowMillis int64 = 7 * 24 * 60 * 60 * 1000
+	searchMaxWindowMillis     int64 = 30 * 24 * 60 * 60 * 1000
 
 	// 摘要里关键词左右各保留多少字符。
 	snippetPadding = 24
@@ -53,6 +61,9 @@ type SearchHisMsgsReq struct {
 	SubChannel  string `json:"sub_channel"`
 	Keyword     string `json:"keyword"`
 	Limit       int32  `json:"limit"`
+	// FromTime / ToTime 是 Unix 毫秒的搜索窗口，留空表示最近 7 天。
+	FromTime int64 `json:"from_time"`
+	ToTime   int64 `json:"to_time"`
 }
 
 // SearchHit 是一条命中结果。
@@ -116,28 +127,80 @@ func SearchHisMsgs(ctx *gin.Context) {
 	}
 
 	converId := commonservices.GetConversationId(req.UserId, req.TargetId, channelType)
-	code, resp, err := bases.SyncRpcCall(services.ToRpcCtx(ctx, req.UserId), "qry_hismsgs", converId, &pbobjs.QryHisMsgsReq{
-		TargetId:    req.TargetId,
-		ChannelType: channelType,
-		SubChannel:  req.SubChannel,
-		Count:       SearchCandidateLimit,
-		Order:       0, // 倒序：从最新往回翻，最近的消息更可能被搜
-		MsgTypes:    []string{msgdefines.InnerMsgType_Text},
-	}, func() proto.Message {
-		return &pbobjs.DownMsgSet{}
-	})
-	if err != nil {
-		tools.ErrorHttpResp(ctx, errs.IMErrorCode_API_INTERNAL_TIMEOUT)
-		return
-	}
-	if code != errs.IMErrorCode_SUCCESS {
-		tools.ErrorHttpResp(ctx, errs.IMErrorCode(code))
-		return
+	rpcCtx := services.ToRpcCtx(ctx, req.UserId)
+
+	from, to := normalizeSearchWindow(req.FromTime, req.ToTime, nowMillis())
+
+	// 分批往回翻页。单次 RPC 只回一页，想覆盖更长的时间范围只能翻页——
+	// 这是"不建内容索引"的代价：用扫描量换存储结构的稳定。
+	//
+	// 翻页游标用 MsgTime（服务端会尽量对齐 send_time），但**不能假设它与排序严格一致**：
+	// 历史数据里 MsgTime 可能全部相同（例如导入的消息），此时游标会原地不动、
+	// 每页返回同一批数据。所以这里同时做 msg_id 去重 + 游标停滞检测，
+	// 保证最坏情况下也只是少扫，不会重复扫 5 遍。
+	seen := make(map[string]struct{}, SearchCandidateLimit*searchMaxBatches)
+	collected := make([]*pbobjs.DownMsg, 0, SearchCandidateLimit)
+	cursor := to
+	lastCursor := int64(-1)
+	truncated := false
+	for batch := 0; batch < searchMaxBatches; batch++ {
+		code, resp, err := bases.SyncRpcCall(rpcCtx, "qry_hismsgs", converId, &pbobjs.QryHisMsgsReq{
+			TargetId:    req.TargetId,
+			ChannelType: channelType,
+			SubChannel:  req.SubChannel,
+			StartTime:   cursor,
+			Count:       SearchCandidateLimit,
+			Order:       0, // 倒序：从新往旧翻
+			MsgTypes:    []string{msgdefines.InnerMsgType_Text},
+		}, func() proto.Message {
+			return &pbobjs.DownMsgSet{}
+		})
+		if err != nil {
+			tools.ErrorHttpResp(ctx, errs.IMErrorCode_API_INTERNAL_TIMEOUT)
+			return
+		}
+		if code != errs.IMErrorCode_SUCCESS {
+			tools.ErrorHttpResp(ctx, errs.IMErrorCode(code))
+			return
+		}
+
+		page := resp.(*pbobjs.DownMsgSet).Msgs
+		added := 0
+		for _, msg := range page {
+			if _, dup := seen[msg.MsgId]; dup {
+				continue
+			}
+			seen[msg.MsgId] = struct{}{}
+			collected = append(collected, msg)
+			added++
+		}
+		// 整页都是重复的，或根本没有数据 —— 再翻也是原地打转。
+		if len(page) < SearchCandidateLimit || added == 0 {
+			break
+		}
+		// DAO 会把倒序结果重新排成升序，所以这一页里最老的是 page[0]。
+		oldest := page[0].MsgTime
+		if from > 0 && oldest <= from {
+			break // 已翻到时间窗下界
+		}
+		next := oldest - 1 // 减一毫秒，避免下一页把边界那条重复算进来
+		if next >= cursor || next == lastCursor {
+			break // 游标不前进，停止，避免空转
+		}
+		lastCursor = cursor
+		cursor = next
+		if batch == searchMaxBatches-1 {
+			truncated = true // 还有更早的没扫，如实告诉调用方
+		}
 	}
 
-	msgSet := resp.(*pbobjs.DownMsgSet)
+	// collected 是按"每页升序 + 页序由新到旧"拼起来的，最终结果统一按时间倒序输出。
+	sort.SliceStable(collected, func(i, j int) bool {
+		return collected[i].MsgTime > collected[j].MsgTime
+	})
+
 	hits := make([]*SearchHit, 0, limit)
-	for _, msg := range msgSet.Msgs {
+	for _, msg := range collected {
 		text := ExtractTextContent(msg.MsgContent)
 		if text == "" {
 			continue
@@ -160,9 +223,29 @@ func SearchHisMsgs(ctx *gin.Context) {
 	tools.SuccessHttpResp(ctx, gin.H{
 		"hits":            hits,
 		"count":           len(hits),
-		"scanned":         len(msgSet.Msgs),
-		"candidate_limit": SearchCandidateLimit,
+		"scanned":         len(collected),
+		"truncated":       truncated,
+		"candidate_limit": SearchCandidateLimit * searchMaxBatches,
+		"window_from":     from,
+		"window_to":       to,
 	})
+}
+
+// normalizeSearchWindow 钳制搜索时间窗。
+//
+// 缺省 7 天、上限 30 天：与租户保留期口径一致，也避免一次请求把整库扫一遍。
+// to 不允许超过当前时间，防止用未来时间窗绕出"全部消息"。
+func normalizeSearchWindow(from, to, now int64) (int64, int64) {
+	if to <= 0 || to > now {
+		to = now
+	}
+	if from <= 0 || from > to {
+		from = to - searchDefaultWindowMillis
+	}
+	if to-from > searchMaxWindowMillis {
+		from = to - searchMaxWindowMillis
+	}
+	return from, to
 }
 
 // NormalizeSearchKeyword 清理并校验关键词。
