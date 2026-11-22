@@ -71,10 +71,7 @@ func PreSendCheck(ctx context.Context, appKey, senderId, targetId string, channe
 	}
 
 	bodyBytes, _ := json.Marshal(reqPayload)
-	headers := map[string]string{
-		"Content-Type": "application/json",
-		"X-App-Key":    appKey,
-	}
+	headers := BuildWebhookHeaders(appKey, appInfo.AppSecret, time.Now().UnixMilli(), bodyBytes)
 
 	respBytes, httpCode, err := tools.HttpDoBytesWithTimeout("POST", appInfo.PreSendWebhookUrl, headers, string(bodyBytes), 500*time.Millisecond)
 	if err != nil || httpCode != 200 {
@@ -111,6 +108,7 @@ func PostSendNotify(appKey, msgId, senderId, targetId string, channelType int, m
 		return
 	}
 
+	now := time.Now().UnixMilli()
 	reqPayload := PostSendWebhookReq{
 		AppKey:      appKey,
 		MsgId:       msgId,
@@ -123,10 +121,7 @@ func PostSendNotify(appKey, msgId, senderId, targetId string, channelType int, m
 
 	safeGo(func() {
 		bodyBytes, _ := json.Marshal(reqPayload)
-		headers := map[string]string{
-			"Content-Type": "application/json",
-			"X-App-Key":    appKey,
-		}
+		headers := BuildWebhookHeaders(appKey, appInfo.AppSecret, now, bodyBytes)
 		_, _, _ = tools.HttpDoBytesWithTimeout("POST", appInfo.PostSendWebhookUrl, headers, string(bodyBytes), 2*time.Second)
 	})
 }
@@ -138,19 +133,17 @@ func EventNotify(appKey, eventType string, data map[string]interface{}) {
 		return
 	}
 
+	now := time.Now().UnixMilli()
 	reqPayload := EventWebhookReq{
 		AppKey:    appKey,
 		EventType: eventType,
-		Timestamp: time.Now().UnixMilli(),
+		Timestamp: now,
 		Data:      data,
 	}
 
 	safeGo(func() {
 		bodyBytes, _ := json.Marshal(reqPayload)
-		headers := map[string]string{
-			"Content-Type": "application/json",
-			"X-App-Key":    appKey,
-		}
+		headers := BuildWebhookHeaders(appKey, appInfo.AppSecret, now, bodyBytes)
 		_, _, _ = tools.HttpDoBytesWithTimeout("POST", appInfo.EventWebhookUrl, headers, string(bodyBytes), 2*time.Second)
 	})
 }
