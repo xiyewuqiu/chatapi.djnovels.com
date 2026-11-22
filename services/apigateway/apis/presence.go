@@ -43,7 +43,7 @@ func SetUserPresence(ctx *gin.Context) {
 		return
 	}
 
-	appKey := bases.GetAppKeyFromCtx(ctx)
+	appKey := services.GetAppkeyFromCtx(ctx)
 	item := commonservices.UpdateUserPresence(appKey, req.UserId, req.Status, req.CustomStatus, req.Platform, req.ExpireSec)
 
 	// Broadcast presence event to webhook
@@ -65,7 +65,7 @@ func QryUserPresence(ctx *gin.Context) {
 		return
 	}
 
-	appKey := bases.GetAppKeyFromCtx(ctx)
+	appKey := services.GetAppkeyFromCtx(ctx)
 
 	// Query network socket online status from connectmanager
 	networkOnlineMap := sync.Map{}

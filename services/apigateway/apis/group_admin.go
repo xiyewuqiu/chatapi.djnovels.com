@@ -30,7 +30,7 @@ func SetGroupAdmins(ctx *gin.Context) {
 		return
 	}
 
-	appKey := bases.GetAppKeyFromCtx(ctx)
+	appKey := services.GetAppkeyFromCtx(ctx)
 	code, _, err := bases.SyncRpcCall(services.ToRpcCtx(ctx, ""), "grp_set_admin", req.GroupId, &pbobjs.GroupMembersReq{
 		GroupId:   req.GroupId,
 		MemberIds: req.MemberIds,
@@ -60,7 +60,7 @@ func DelGroupAdmins(ctx *gin.Context) {
 		return
 	}
 
-	appKey := bases.GetAppKeyFromCtx(ctx)
+	appKey := services.GetAppkeyFromCtx(ctx)
 	code, _, err := bases.SyncRpcCall(services.ToRpcCtx(ctx, ""), "grp_del_admin", req.GroupId, &pbobjs.GroupMembersReq{
 		GroupId:   req.GroupId,
 		MemberIds: req.MemberIds,
@@ -125,7 +125,7 @@ func TransferGroupOwner(ctx *gin.Context) {
 		return
 	}
 
-	appKey := bases.GetAppKeyFromCtx(ctx)
+	appKey := services.GetAppkeyFromCtx(ctx)
 	rpcCtx := services.ToRpcCtx(ctx, req.NewOwnerId)
 
 	// Ensure new owner is in group

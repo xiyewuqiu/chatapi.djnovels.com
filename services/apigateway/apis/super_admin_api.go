@@ -56,7 +56,7 @@ func BroadcastSystemMessage(ctx *gin.Context) {
 		return
 	}
 
-	appKey := bases.GetAppKeyFromCtx(ctx)
+	appKey := services.GetAppkeyFromCtx(ctx)
 	rpcCtx := services.ToRpcCtx(ctx, req.SenderId)
 	flag := msgdefines.SetStoreMsg(0)
 	flag = msgdefines.SetCountMsg(flag)
@@ -105,7 +105,7 @@ func ForceCreateGroup(ctx *gin.Context) {
 		return
 	}
 
-	appKey := bases.GetAppKeyFromCtx(ctx)
+	appKey := services.GetAppkeyFromCtx(ctx)
 	memberMap := make(map[string]bool)
 	if req.GroupOwner != "" {
 		memberMap[req.GroupOwner] = true
@@ -159,7 +159,7 @@ func ForceDissolveGroup(ctx *gin.Context) {
 		return
 	}
 
-	appKey := bases.GetAppKeyFromCtx(ctx)
+	appKey := services.GetAppkeyFromCtx(ctx)
 	rpcCtx := services.ToRpcCtx(ctx, "admin")
 	code, _, err := bases.SyncRpcCall(rpcCtx, "g_dissolve", req.GroupId, &pbobjs.GroupMembersReq{
 		GroupId: req.GroupId,
@@ -215,7 +215,7 @@ func ForceKickUser(ctx *gin.Context) {
 		return
 	}
 
-	appKey := bases.GetAppKeyFromCtx(ctx)
+	appKey := services.GetAppkeyFromCtx(ctx)
 	rpcCtx := services.ToRpcCtx(ctx, req.UserId)
 	var deviceIds []string
 	if req.DeviceId != "" {

@@ -32,7 +32,7 @@ func QryReadDetail(ctx *gin.Context) {
 		return
 	}
 
-	appKey := bases.GetAppKeyFromCtx(ctx)
+	appKey := services.GetAppkeyFromCtx(ctx)
 	rpcCtx := services.ToRpcCtx(ctx, "admin")
 
 	code, respObj, err := bases.SyncRpcCall(rpcCtx, "qry_read_detail", req.TargetId, &pbobjs.QryReadDetailReq{

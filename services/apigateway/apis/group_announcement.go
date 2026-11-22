@@ -35,7 +35,7 @@ func SetGroupAnnouncement(ctx *gin.Context) {
 		return
 	}
 
-	appKey := bases.GetAppKeyFromCtx(ctx)
+	appKey := services.GetAppkeyFromCtx(ctx)
 	now := time.Now().UnixMilli()
 
 	annoData := GroupAnnouncementData{

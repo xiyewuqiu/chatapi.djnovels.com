@@ -61,6 +61,10 @@ type ImConfig struct {
 
 	ApiGateway struct {
 		HttpPort int `yaml:"httpPort"`
+		// IpWhitelist 是服务端 API 的来源白名单。留空表示不启用（与上游默认行为一致）；
+		// 非空时只放行列出的地址。这层是防火墙之外的应用级兜底：
+		// 防火墙被误开时，非回环来源仍然拿不到 API。
+		IpWhitelist []string `yaml:"ipWhitelist"`
 	} `yaml:"apiGateway"`
 
 	NavGateway struct {

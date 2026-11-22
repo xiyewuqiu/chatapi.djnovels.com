@@ -79,7 +79,7 @@ func AddMsgReaction(ctx *gin.Context) {
 		return
 	}
 
-	appKey := bases.GetAppKeyFromCtx(ctx)
+	appKey := services.GetAppkeyFromCtx(ctx)
 	if appInfo, ok := commonservices.GetAppInfo(appKey); ok && appInfo != nil && !appInfo.OpenReaction {
 		tools.ErrorHttpResp(ctx, errs.IMErrorCode_CONNECT_FUNCTIONDISABLED)
 		return

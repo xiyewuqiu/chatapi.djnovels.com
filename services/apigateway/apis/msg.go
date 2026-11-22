@@ -38,7 +38,7 @@ func SendPrivateMsg(ctx *gin.Context) {
 	targetIds = append(targetIds, sendMsgReq.TargetIds...)
 	targetIds = purgeTargetIds(targetIds)
 
-	appKey := bases.GetAppKeyFromCtx(ctx)
+	appKey := services.GetAppkeyFromCtx(ctx)
 	allow, modifiedContent, errCode := commonservices.PreSendCheck(ctx, appKey, sendMsgReq.SenderId, sendMsgReq.TargetId, int(pbobjs.ChannelType_Private), sendMsgReq.MsgType, []byte(sendMsgReq.MsgContent))
 	if !allow {
 		tools.ErrorHttpResp(ctx, errCode)
@@ -103,7 +103,7 @@ func SendSystemMsg(ctx *gin.Context) {
 	targetIds = append(targetIds, sendMsgReq.TargetIds...)
 	targetIds = purgeTargetIds(targetIds)
 
-	appKey := bases.GetAppKeyFromCtx(ctx)
+	appKey := services.GetAppkeyFromCtx(ctx)
 	allow, modifiedContent, errCode := commonservices.PreSendCheck(ctx, appKey, sendMsgReq.SenderId, sendMsgReq.TargetId, int(pbobjs.ChannelType_Group), sendMsgReq.MsgType, []byte(sendMsgReq.MsgContent))
 	if !allow {
 		tools.ErrorHttpResp(ctx, errCode)
@@ -158,7 +158,7 @@ func SendGroupMsg(ctx *gin.Context) {
 	targetIds = append(targetIds, sendMsgReq.TargetIds...)
 	targetIds = purgeTargetIds(targetIds)
 
-	appKey := bases.GetAppKeyFromCtx(ctx)
+	appKey := services.GetAppkeyFromCtx(ctx)
 	allow, modifiedContent, errCode := commonservices.PreSendCheck(ctx, appKey, sendMsgReq.SenderId, sendMsgReq.TargetId, int(pbobjs.ChannelType_Group), sendMsgReq.MsgType, []byte(sendMsgReq.MsgContent))
 	if !allow {
 		tools.ErrorHttpResp(ctx, errCode)

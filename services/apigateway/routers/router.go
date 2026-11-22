@@ -1,6 +1,7 @@
 package routers
 
 import (
+	"im-server/commons/configures"
 	"im-server/services/apigateway/apis"
 
 	"github.com/gin-gonic/gin"
@@ -8,6 +9,8 @@ import (
 
 func Route(eng *gin.Engine, prefix string) {
 	group := eng.Group("/" + prefix)
+	// 来源白名单必须在签名之前：先挡掉不该到达这里的请求，再做密码学校验。
+	group.Use(apis.IpWhitelist(configures.Config.ApiGateway.IpWhitelist))
 	group.Use(apis.Signature)
 	group.POST("/users/register", apis.Register)
 	group.POST("/users/update", apis.UpdateUser)
